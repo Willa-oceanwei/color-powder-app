@@ -51,6 +51,26 @@ def test_legacy_saved_rows_do_not_restore_old_date_counts_or_package_shape(tmp_p
             assert set(json.loads(payload)[0]) == {"編號", "品名", "比例"}
 
 
+def test_colorant_big_label_defaults_to_25kg_without_recalculating_counts(tmp_path):
+    from utils.recipe_repository import create_recipe
+
+    config = DatabaseConfig(backend="sqlite", path=tmp_path / "colorant.db")
+    initialize_database(config.path)
+    create_recipe(config, {"配方編號": "R001", "色粉類別": "色母"})
+    order = {"配方編號": "R001", "色粉類別": "色母"}
+    labels = [{"編號": "R001", "名稱": "綠", "數量": "100"},
+              {"編號": "R001", "名稱": "綠", "數量": "75"}]
+    rows = build_big_label_editor_defaults(config, order, labels)
+    assert [(row["數量"], row["列印張數"]) for row in rows] == [("25KG", 1), ("25KG", 1)]
+    assert build_big_label_editor_defaults(config, {"配方編號": "R001"}, labels) == rows
+    assert build_big_label_editor_defaults(config, order, [])[0]["數量"] == "25KG"
+    assert [row["數量"] for row in build_big_label_editor_defaults(config, order, labels, label_kind="small")] == [
+        "100KG", "75KG",
+    ]
+    rows[0]["數量"] = "20KG"
+    assert expand_big_label_editor_rows(rows)[0]["數量"] == "20KG"
+
+
 def test_empty_cells_and_removed_rows_are_safe():
     rows = normalize_big_label_editor_rows([
         {"編號": None, "數量": float("nan"), "列印張數": float("nan")},
