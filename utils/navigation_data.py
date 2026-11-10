@@ -34,22 +34,6 @@ def warm_navigation_reads(config, state, menu, customer_display):
                 navigation_reads.append(partial(list_recipes, config))
             if "df_order" not in state:
                 navigation_reads.append(partial(list_production_orders, config, include_cancelled=True))
-        elif menu == "生產單管理":
-            navigation_reads = [partial(customer_display._load)]
-            if not state.get("production_data_loaded", False):
-                navigation_reads.extend([
-                    partial(list_production_orders, config, include_cancelled=True),
-                    partial(list_recipes, config),
-                    partial(list_inventory_movements, config),
-                ])
-        elif menu == "配方管理":
-            navigation_reads = [partial(customer_display._load)]
-            if not state.get("recipe_data_loaded", False):
-                navigation_reads.extend([
-                    partial(list_recipes, config, include_inactive=True),
-                    partial(list_color_powders, config, include_inactive=True),
-                    partial(list_customers, config),
-                ])
         elif menu == "代工管理":
             navigation_reads = [
                 partial(customer_display._load),
