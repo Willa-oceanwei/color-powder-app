@@ -4183,10 +4183,12 @@ elif menu == "配方管理":
         """從 Turso 讀取配方、色粉與客戶主檔。"""
 
         # 三份主檔互不相依，平行查詢可避免累加 Turso 網路延遲。
-        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
             recipes_future = executor.submit(list_recipes, DATABASE_CONFIG, include_inactive=True)
             powders_future = executor.submit(list_color_powders, DATABASE_CONFIG, include_inactive=True)
             customers_future = executor.submit(customer_dataframe)
+            if DATABASE_CONFIG.backend == "turso":
+                executor.submit(customer_display._load)
 
         # 1️⃣ 配方管理
         try:
@@ -5796,7 +5798,8 @@ def render_production_order_workspace():
                 list_production_orders, DATABASE_CONFIG, include_cancelled=True
             )
             recipes_future = executor.submit(list_recipes, DATABASE_CONFIG)
-            inventory_future = executor.submit(list_inventory_movements, DATABASE_CONFIG)
+            if DATABASE_CONFIG.backend == "turso":
+                executor.submit(customer_display._load)
 
         try:
             df_order = pd.DataFrame(orders_future.result())
@@ -5819,17 +5822,10 @@ def render_production_order_workspace():
             st.error(f"❌ 從 Turso 讀取配方失敗：{e}")
             st.stop()
 
-        try:
-            initial_inventory_movements = pd.DataFrame(inventory_future.result())
-        except Exception as e:
-            st.warning(f"⚠️ 無法預先載入庫存記錄：{e}")
-            initial_inventory_movements = None
-
         if not df_order.empty:
             df_order = df_order.fillna("").astype(str)
         st.session_state.df_order = df_order
         st.session_state.df_recipe = df_recipe
-        st.session_state["_initial_production_inventory"] = initial_inventory_movements
         st.session_state.production_data_loaded = True
         st.session_state.production_recipe_ids_version = 1
     
@@ -5843,22 +5839,19 @@ def render_production_order_workspace():
 
     # ===== 完整初始化庫存（初始 + 進貨 - 已用） =====
     # ===== 庫存計算函式 =====
-    def calculate_current_stock(preloaded_movements=None):
+    def calculate_current_stock():
         """
         計算截至「今天」的實際庫存
         邏輯：與庫存區 calc_usage_for_stock() 完全一致
         """
         stock_dict = {}
         
-        if preloaded_movements is not None:
-            df_stock = preloaded_movements.copy()
-        else:
-            try:
-                df_stock = pd.DataFrame(list_inventory_movements(DATABASE_CONFIG))
-            except Exception as e:
-                st.warning(f"⚠️ 無法讀取庫存記錄：{e}")
-                return stock_dict
-        
+        try:
+            df_stock = pd.DataFrame(list_inventory_movements(DATABASE_CONFIG))
+        except Exception as e:
+            st.warning(f"⚠️ 無法讀取庫存記錄：{e}")
+            return stock_dict
+
         if df_stock.empty:
             return stock_dict
         
@@ -6058,31 +6051,6 @@ def render_production_order_workspace():
                         processed_powders.add(pid)  # ✅ 標記已處理
         
         return stock_dict
-    
-    # ⚡ 生產單頁：庫存重算節流（預設 3 分鐘）
-    now = datetime.now()
-    stock_recalc_interval_sec = 180
-    last_calc_time = st.session_state.get("stock_calc_time")
-
-    should_recalc_stock = (
-        "last_final_stock" not in st.session_state
-        or last_calc_time is None
-        or not isinstance(last_calc_time, datetime)
-        or (now - last_calc_time).total_seconds() > stock_recalc_interval_sec
-    )
-
-    stock_calculation_started_at = time.perf_counter()
-    if should_recalc_stock:
-        # 首次開頁沿用與生產單、配方並行取得的庫存快照，避免先等完
-        # 兩個 Turso query 後又串行等待第三個。三分鐘到期後才重新讀取。
-        initial_inventory = st.session_state.pop("_initial_production_inventory", None)
-        st.session_state["last_final_stock"] = calculate_current_stock(initial_inventory)
-        st.session_state["stock_calc_time"] = now
-    log_performance(
-        "production_stock_calculation",
-        stock_calculation_started_at,
-        cached=not should_recalc_stock,
-    )
     
     # ============================================================
     # 共用顯示函式（正式流程使用）
@@ -6332,75 +6300,46 @@ def render_production_order_workspace():
         # ===== 關鍵字拆分 =====
         keywords = split_search_keywords(search_text_tab1)
                
-        # ===== 建立搜尋 dataframe（不污染原始資料）=====
-        search_df = df_recipe[["配方編號", "客戶名稱", "顏色"]].copy()
-             
-        # ===== 建立高速搜尋欄位 =====
-        if "_search_text" not in search_df.columns:
-        
-            search_df["_search_text"] = (
-                search_df["配方編號"].astype(str) + " " +
-                search_df["客戶名稱"].astype(str) + " " +
-                search_df["顏色"].astype(str)
-            ).str.lower()        
-        
-        # ===== 多條件搜尋（AND）=====
+        filtered = df_recipe
         if keywords:
-        
+            search_df = df_recipe[["配方編號", "客戶名稱", "顏色"]].astype(str)
+            search_text = (search_df["配方編號"] + " " + search_df["客戶名稱"] + " " + search_df["顏色"]).str.lower()
             mask = pd.Series(True, index=search_df.index)
-        
             for kw in keywords:
-                mask &= search_df["_search_text"].str.contains(kw.lower(), na=False, regex=False)
-        
+                mask &= search_text.str.contains(kw.lower(), na=False, regex=False)
             filtered = df_recipe[mask]
-        
-        else:
-            filtered = df_recipe
-        
-        # A complete recipe ID takes priority over substring matches (917 / 1917 / 917A).
-        exact = filtered[filtered["配方編號"].astype(str).str.strip().str.casefold() == search_text_tab1.strip().casefold()]
-        if search_text_tab1.strip() and not exact.empty:
-            filtered = exact.copy()
 
-        # ===== 建立選單 =====
-        if not filtered.empty:
-        
-            option_map = {}
-            for row in filtered.to_dict(orient="records"):
-                label = format_option_with_status(row)
-                row["label"] = label
-                option_map[label] = row
-        
-        else:
-            option_map = {}       
-        
+        # A complete recipe ID takes priority over substring matches (917 / 1917 / 917A).
+        exact_code = search_text_tab1.strip().casefold()
+        if exact_code:
+            exact = filtered[filtered["配方編號"].astype(str).str.strip().str.casefold() == exact_code]
+            if not exact.empty:
+                filtered = exact
+
+        # The picker only needs label fields. Read the full row after selection.
+        label_fields = ["配方編號", "顏色", "客戶名稱", "配方類別", "狀態"]
+        option_map = {}
+        for position, row in enumerate(filtered.reindex(columns=label_fields).to_dict("records")):
+            option_map[format_option_with_status(row)] = position
+
         # ===== 顯示選擇結果 =====
         if not option_map:
-        
             render_empty_state("查無符合的配方")
-        
-            selected_row = None
             selected_label = None
-        
-        
         elif len(option_map) == 1 and (keywords or not st.session_state.get("production_draft_cleared", False)):
-        
-            selected_label = list(option_map.keys())[0]
-            selected_row = option_map[selected_label].copy()
-        
+            selected_label = next(iter(option_map))
         else:
-        
             selected_label = customer_display.selectbox(st,
                 "選擇配方",
-                ["請選擇"] + list(option_map.keys()),
+                ["請選擇"] + list(option_map),
                 index=0,
                 key="search_add_form_selected_recipe_tab1"
             )
-        
-            if selected_label == "請選擇":
-                selected_row = None
-            else:
-                selected_row = option_map.get(selected_label)
+
+        selected_row = None
+        if selected_label in option_map:
+            selected_row = filtered.iloc[option_map[selected_label]].to_dict()
+            selected_row["label"] = selected_label
 
         def renamed_recipe_for_new_order(code):
             reset_production_order_draft_state(st.session_state, "", "", force=True)
@@ -6644,6 +6583,27 @@ def render_production_order_workspace():
     
         # ===== 顯示詳情填寫表單 =====
         if show_confirm_panel:
+            # 明細開啟後才需要低庫存檢查所用的庫存資料。
+            now = datetime.now()
+            stock_recalc_interval_sec = 180
+            last_calc_time = st.session_state.get("stock_calc_time")
+
+            should_recalc_stock = (
+                "last_final_stock" not in st.session_state
+                or last_calc_time is None
+                or not isinstance(last_calc_time, datetime)
+                or (now - last_calc_time).total_seconds() > stock_recalc_interval_sec
+            )
+
+            stock_calculation_started_at = time.perf_counter()
+            if should_recalc_stock:
+                st.session_state["last_final_stock"] = calculate_current_stock()
+                st.session_state["stock_calc_time"] = now
+            log_performance(
+                "production_stock_calculation",
+                stock_calculation_started_at,
+                cached=not should_recalc_stock,
+            )
         
             # ✅【關鍵】第一次進入時，從配方帶入預設值
             if initialize_production_order_recipe_widgets(
