@@ -196,13 +196,25 @@ def test_short_exact_recipe_search_prefers_full_id_and_keeps_draft_inputs(produc
     assert list_production_orders(production_config) == before
 
 
-def test_manual_recipe_selection_opens_creation_without_another_add_click(production_config):
+def test_manual_recipe_selection_opens_creation_without_another_add_click(production_config, monkeypatch):
+    from utils import inventory_repository
+
+    original_read = inventory_repository.list_inventory_movements
+    reads = []
+
+    def count_inventory_read(*args, **kwargs):
+        reads.append(True)
+        return original_read(*args, **kwargs)
+
+    monkeypatch.setattr(inventory_repository, "list_inventory_movements", count_inventory_read)
     for code in ('917', '917A'):
         create_recipe(production_config, {'配方編號': code, '顏色': '螢光黃', '客戶名稱': 'Customer',
                                          '色粉類別': '配方', '配方類別': '原始配方', '計量單位': 'kg'})
     before = list_production_orders(production_config)
     app = workspace_app(production_config).run(timeout=30)
+    assert not app.exception and not reads
     app.text_input(key='search_text_tab1').set_value('螢光黃').run()
+    assert not reads
     picker = app.selectbox(key='search_add_form_selected_recipe_tab1')
     label = next(option for option in picker.options if option.startswith('917 |'))
     picker.set_value(label).run()
@@ -215,6 +227,7 @@ def test_manual_recipe_selection_opens_creation_without_another_add_click(produc
     assert not app.exception and app.session_state['show_confirm_panel']
     assert app.session_state['new_order']['配方編號'] == '917A'
     assert app.text_input(key='form_weight1_tab1').value == ''
+    assert len(reads) == 1
     assert list_production_orders(production_config) == before
 
 
