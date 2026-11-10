@@ -4148,6 +4148,15 @@ elif menu == "配方管理":
     st.markdown("""
     <style>
     div.block-container { padding-top: 5px; }
+    .st-key-recipe_creation_actions [data-testid="stHorizontalBlock"] {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, max-content));
+        gap: 0.5rem;
+    }
+    .st-key-recipe_creation_actions [data-testid="stColumn"] {
+        width: auto;
+        min-width: 0 !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -4457,14 +4466,16 @@ elif menu == "配方管理":
                     st.write("合計差額: 計算錯誤")
     
             # ---------------- 按鈕區 ----------------
-            col1, col2, clear_col, _ = st.columns([1.4, 1.6, 0.45, 4], vertical_alignment="center")
-            with col1:
-                submitted  = st.form_submit_button("💾 儲存配方")
-            with col2:
-                add_powder = st.form_submit_button("➕ 新增色粉列")
-            with clear_col:
-                st.form_submit_button("↺", on_click=clear_recipe_creation,
-                                      help="清空本次配方輸入並恢復預設值（已儲存配方會保留）")
+            with st.container(key="recipe_creation_actions"):
+                save_col, powder_col, reset_col = st.columns(3, vertical_alignment="center")
+                submitted = save_col.form_submit_button("💾 儲存配方", use_container_width=True)
+                add_powder = powder_col.form_submit_button("➕ 新增色粉列", use_container_width=True)
+                reset_col.form_submit_button(
+                    "↺ 重填",
+                    on_click=clear_recipe_creation,
+                    use_container_width=True,
+                    help="重新整理配方表單，清空本次輸入並恢復預設值（已儲存配方會保留）",
+                )
     
             # ── 表單提交後處理 ──
             if submitted:
