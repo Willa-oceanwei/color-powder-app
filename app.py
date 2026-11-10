@@ -3260,11 +3260,12 @@ def generate_big_label_html(label_rows, *, paper_stock="a4_driver"):
         entry_left_cm = round(left_col_x_cm + extra_right_cm, 3)
         entry_width_cm = round(max(0.1, left_text_width_cm - extra_right_cm), 3)
         width_style = f" width:{entry_width_cm}cm;" if extra_right_cm else ""
+        name_class = " single-character" if len(name_text) == 1 else ""
         return f"""<div class="label">
 <div class="field left" style="left:{entry_left_cm}cm; top:{row1_y_cm}cm;{width_style}">{format_label_text(entry.get('編號'))}</div>
 <div class="field right" style="left:{right_col_x_cm}cm; top:{row1_y_cm}cm;">{format_label_text(entry.get('日期'))}</div>
 <div class="field right" style="left:{right_col_x_cm}cm; top:{row2_y_cm}cm;">{format_label_text(entry.get('比例'))}</div>
-<div class="field left" style="left:{entry_left_cm}cm; top:{name_y_cm}cm;{width_style}">{format_label_text(entry.get('名稱'))}</div>
+<div class="field left{name_class}" style="left:{entry_left_cm}cm; top:{name_y_cm}cm;{width_style}">{format_label_text(entry.get('名稱'))}</div>
 <div class="field right" style="left:{right_col_x_cm}cm; top:{quantity_y_cm}cm;">{format_label_text(entry.get('數量'))}</div>
 </div>"""
 
@@ -3326,6 +3327,7 @@ body {{ margin: 0; padding: 0; }}
 }}
 .field.left {{ font-size: 18pt; width: {left_text_width_cm}cm; }}
 .field.right {{ font-size: 17pt; }}
+.field.single-character {{ margin-left: -1mm; }}
 {LABEL_CHINESE_STYLE}
 </style>
 <script>
