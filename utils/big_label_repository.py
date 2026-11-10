@@ -46,16 +46,23 @@ def _memory_key(order, label_kind="big"):
 
 
 def build_big_label_editor_defaults(config, order, labels, *, label_kind="big"):
+    category = _cell(order.get("色粉類別"))
+    recipe_id = _cell(order.get("配方編號"))
     with connect_from_config(config) as conn:
         saved = conn.execute("SELECT rows_json FROM big_label_templates WHERE label_key=?", (_memory_key(order, label_kind),)).fetchone()
+        if label_kind == "big" and not category and recipe_id:
+            recipe = conn.execute("SELECT powder_category FROM recipes WHERE recipe_id=?", (recipe_id,)).fetchone()
+            if recipe is not None:
+                category = _cell(recipe[0])
+    fixed_quantity = "25KG" if label_kind == "big" and category == "色母" else ""
     grouped = {}
     for label in labels:
         key = tuple(_cell(label.get(field)) for field in ("編號", "名稱", "日期", "比例", "數量"))
         grouped[key] = grouped.get(key, 0) + 1
     defaults = [
-        {"編號": no, "品名": name, "日期": date, "比例": ratio, "數量": qty + "KG" if qty else "", "列印張數": count}
+        {"編號": no, "品名": name, "日期": date, "比例": ratio, "數量": fixed_quantity or (f"{qty}KG" if qty else ""), "列印張數": count}
         for (no, name, date, ratio, qty), count in grouped.items()
-    ] or [{"編號": _memory_key(order), "品名": _cell(order.get("顏色")), "日期": "", "比例": "", "數量": "", "列印張數": 1}]
+    ] or [{"編號": _memory_key(order), "品名": _cell(order.get("顏色")), "日期": "", "比例": "", "數量": fixed_quantity, "列印張數": 1}]
     if saved:
         remembered = normalize_big_label_editor_rows(json.loads(saved[0]))
         if remembered:
