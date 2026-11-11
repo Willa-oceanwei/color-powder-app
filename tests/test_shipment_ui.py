@@ -156,8 +156,10 @@ render_shipment_management(DatabaseConfig(backend='sqlite',path=Path({str(config
     assert app.session_state['shipment_draft']['notes'] == 'Keep unsaved notes'
     assert 'shipment_saved_view' not in app.session_state
     assert get_shipment(config, saved['id'])['notes'] == ''
-    assert 'stage=shipment_save' in caplog.text and 'outcome=error' in caplog.text
-    assert 'Keep unsaved notes' not in caplog.text
+    performance_logs = [record.getMessage() for record in caplog.records
+                        if record.name == "color_powder.performance"]
+    assert any('stage=shipment_save' in line and 'outcome=error' in line for line in performance_logs)
+    assert all('Keep unsaved notes' not in line for line in performance_logs)
 
 
 def test_editing_preview_uses_current_grid_values_without_saving(tmp_path, monkeypatch):

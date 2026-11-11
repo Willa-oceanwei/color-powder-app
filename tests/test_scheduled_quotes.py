@@ -101,7 +101,7 @@ render_scheduled_quotes(DatabaseConfig('sqlite',Path({str(config.path)!r})))
     saved = list_scheduled_quotes(config)[0]
     app.selectbox(key='scheduled_quote_selected').set_value(saved['quote_id']).run()
     next(w for w in app.text_input if w.label == '新單價').set_value('300')
-    next(w for w in app.checkbox if w.label == '啟用此報價提醒').set_value(False)
+    next(w for w in app.toggle if w.label == '啟用此報價提醒').set_value(False)
     next(w for w in app.button if w.label == '儲存預告報價').click().run()
     assert not app.exception
     updated = list_scheduled_quotes(config, include_inactive=True)[0]

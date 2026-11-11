@@ -6,7 +6,7 @@ import pytest
 from streamlit.testing.v1 import AppTest
 
 from test_receivable_report import config, shipment, receipt
-from utils.database import connect, initialize_database, database_health_check
+from utils.database import SCHEMA_VERSION, connect, initialize_database, database_health_check
 from utils.receipt_repository import (save_receipt_batch, list_receipt_batches, receipt_batch_details,
                                       outstanding_shipments, apply_prepaid_batch, void_receipt_batch, void_receipt,
                                       receipt_tracking_start)
@@ -100,7 +100,7 @@ def test_schema_27_upgrade_preserves_single_receipts(config):
         conn.execute('DELETE FROM schema_migrations WHERE version=28')
         conn.execute("INSERT OR IGNORE INTO schema_migrations VALUES (27,'old')")
     initialize_database(config.path)
-    assert database_health_check(config).schema_version == 31
+    assert database_health_check(config).schema_version == SCHEMA_VERSION
     assert outstanding_shipments(config, 'A01')[0]['balance'] == 160
 
 
@@ -117,6 +117,9 @@ render_receipt_entry(DatabaseConfig(backend="sqlite",path=Path({str(config.path)
 ''').run(timeout=30)
     app.radio(key='receipt_mode').set_value('月結／批次收款').run()
     assert not app.exception
+    next(w for w in app.number_input if w.label == '年度').set_value(2026)
+    next(w for w in app.selectbox if w.label == '月份').set_value(10)
+    next(w for w in app.date_input if w.label == '收款日期').set_value(date(2026, 10, 31)).run()
     next(w for w in app.number_input if w.label == '本次收款金額').set_value(300).run()
     next(w for w in app.button if w.label == '登錄批次收款').click().run()
     assert not app.exception, [e.message for e in app.exception]

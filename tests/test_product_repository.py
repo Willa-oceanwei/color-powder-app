@@ -3,7 +3,7 @@ from copy import deepcopy
 import pytest
 
 from utils.customer_repository import CustomerInput, create_customer
-from utils.database import DatabaseConfig, connect, initialize_database, initialize_database_with_health
+from utils.database import SCHEMA_VERSION, DatabaseConfig, connect, initialize_database, initialize_database_with_health
 from utils.product_repository import (
     ProductError, blank_product, get_product, list_products, save_product, set_product_active, shipment_products,
 )
@@ -126,7 +126,7 @@ def test_schema_25_upgrade_keeps_recipe_and_shipment(config):
         conn.execute('DELETE FROM schema_migrations WHERE version=25')
         conn.execute("INSERT OR IGNORE INTO schema_migrations VALUES (24,'2026-10-07')")
     _, health = initialize_database_with_health(config)
-    assert health.schema_version == 31
+    assert health.schema_version == SCHEMA_VERSION
     assert health.schema_compatible
     save_product(config, product(recipe_id='R1'))
 
