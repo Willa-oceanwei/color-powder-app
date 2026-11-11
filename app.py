@@ -10712,10 +10712,9 @@ elif menu == "庫存區":
     import streamlit as st
 
     # ================================================================
-    # ✅ 優化 1：df_recipe / df_order 全程用 session_state，不重讀
+    # 配方沿用 session_state，生產單在下方刷新一次。
     # ================================================================
     df_recipe = st.session_state.get("df_recipe", pd.DataFrame())
-    df_order  = st.session_state.get("df_order",  pd.DataFrame())
 
     # 「排行」與「用量」也必須能在直接進入庫存區時使用，而不是等使用者先造訪
     # 配方管理或生產單管理後才取得資料。
@@ -10725,14 +10724,6 @@ elif menu == "庫存區":
             st.session_state.df_recipe = df_recipe
         except Exception as exc:
             st.error(f"❌ 無法從 Turso 載入配方資料：{exc}")
-    if "df_order" not in st.session_state:
-        try:
-            df_order = pd.DataFrame(
-                list_production_orders(DATABASE_CONFIG, include_cancelled=True)
-            ).fillna("")
-            st.session_state.df_order = df_order
-        except Exception as exc:
-            st.error(f"❌ 無法從 Turso 載入生產單資料：{exc}")
 
     # Refresh lifecycle state even when this session already holds an order frame.
     from utils.production_inventory import prepare_inventory_orders
