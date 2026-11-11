@@ -76,3 +76,42 @@ def test_existing_cached_results_expire_once_without_mutating_history():
 ])
 def test_legacy_and_lifecycle_flags(row, expected):
     assert len(active_production_orders(pd.DataFrame([row]))) == int(expected)
+
+
+def test_inventory_entry_refreshes_orders_once_and_uses_the_latest_lifecycle():
+    from types import SimpleNamespace
+
+    class InventoryState(dict):
+        __setattr__ = dict.__setitem__
+
+    source = (Path(__file__).parents[1] / "app.py").read_text(encoding="utf-8")
+    inventory = source.split('elif menu == "庫存區":', 1)[1]
+    order_load = inventory[inventory.index("    df_recipe ="):inventory.index("    # 庫存區可以從側邊欄")]
+    entry = compile("if True:\n" + order_load, "inventory-entry", "exec")
+    state = InventoryState(df_recipe=pd.DataFrame())
+    calls = []
+    rows = [{"生產單號": "A", "取消狀態": "有效"}]
+
+    def read_orders(config, *, include_cancelled):
+        assert include_cancelled
+        calls.append(config)
+        return rows
+
+    config = object()
+    namespace = {
+        "st": SimpleNamespace(session_state=state),
+        "pd": pd,
+        "list_production_orders": read_orders,
+        "DATABASE_CONFIG": config,
+    }
+    exec(entry, namespace)
+    assert calls == [config]
+    assert namespace["df_order"]["生產單號"].tolist() == ["A"]
+
+    state["stock_query_result"] = ["stale result"]
+    rows = [{"生產單號": "A", "取消狀態": "已取消"}]
+    exec(entry, namespace)
+    assert calls == [config, config]
+    assert state["df_order"]["取消狀態"].tolist() == ["已取消"]
+    assert namespace["df_order"].empty
+    assert "stock_query_result" not in state
