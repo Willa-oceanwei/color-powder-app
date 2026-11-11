@@ -1,0 +1,28 @@
+name: Color Powder Google Drive backup
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 1 1,15 * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: color-powder-google-drive-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    if: github.repository == 'Willa-oceanwei/color-powder-app' && github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || vars.BACKUP_SCHEDULE_ENABLED == 'true')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Back up to the designated Google Drive folder
+        env:
+          BACKUP_UPLOAD_URL: ${{ secrets.BACKUP_UPLOAD_URL }}
+          BACKUP_UPLOAD_KEY: ${{ secrets.BACKUP_UPLOAD_KEY }}
+        run: python3 scripts/backup_color_powder.py "$RUNNER_TEMP" --upload
