@@ -4,20 +4,28 @@ from io import BytesIO
 from pathlib import Path
 
 import pandas as pd
+import streamlit as st
 from streamlit.testing.v1 import AppTest
 
 
-def test_ranking_csv_uses_kg_and_tracks_suffix_filter_without_recalculation():
+def test_ranking_csv_uses_kg_and_tracks_suffix_filter_without_recalculation(monkeypatch):
     source = Path("app.py").read_text(encoding="utf-8")
     tree = ast.parse(source)
     rank_tab = next(
         node for node in ast.walk(tree)
-        if isinstance(node, ast.With)
-        and any(ast.unparse(item.context_expr) == "tab4" for item in node.items)
+        if isinstance(node, ast.If)
+        and ast.unparse(node.test) == "inventory_view == 'rank'"
         and any(isinstance(child, ast.Constant) and child.value == "btn_powder_rank"
                 for child in ast.walk(node))
     )
     rank_source = ast.unparse(ast.Module(body=rank_tab.body, type_ignores=[]))
+    download = st.download_button
+
+    def capture_download(label, data, *args, **kwargs):
+        st.session_state["csv_bytes"] = data
+        return download(label, data, *args, **kwargs)
+
+    monkeypatch.setattr(st, "download_button", capture_download)
     app = AppTest.from_string('''
 import pandas as pd
 import streamlit as st
@@ -33,11 +41,6 @@ df_recipe = pd.DataFrame([{
     "色粉編號3": "4353", "色粉重量3": 1025,
     "色粉編號4": "0012", "色粉重量4": 0.5,
 }])
-download = st.download_button
-def capture_download(*args, **kwargs):
-    st.session_state["csv_bytes"] = kwargs["data"]
-    return download(*args, **kwargs)
-st.download_button = capture_download
 ''' + rank_source)
     app.session_state["rank_start_date"] = date(2026, 1, 1)
     app.session_state["rank_end_date"] = date(2026, 12, 31)

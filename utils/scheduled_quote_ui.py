@@ -50,7 +50,7 @@ def render_scheduled_quotes(config):
             index=TAX_MODES.index(current.get("tax_mode", "外加")), key=prefix + "tax")
         effective_date = st.date_input("生效日期", value=date.fromisoformat(current["effective_date"]) if current else quote_today(), key=prefix + "date")
         notes = st.text_area("備註", value=current.get("notes", ""), key=prefix + "notes")
-        active = st.checkbox("啟用此報價提醒", value=bool(current.get("active", True)), key=prefix + "active")
+        active = st.toggle("啟用此報價提醒", value=bool(current.get("active", True)), key=prefix + "active")
         submitted = st.form_submit_button("儲存預告報價", type="primary")
     if submitted:
         try:

@@ -88,7 +88,7 @@ def search(app, code):
     next(w for w in app.button if w.label == '查詢').click().run()
 
 
-def test_history_customer_checkboxes_filter_union_clear_and_reset(config, monkeypatch):
+def test_history_customer_toggles_filter_union_clear_and_reset(config, monkeypatch):
     shipment(config, '001', customer='C01', count=2)
     shipment(config, '002', customer='C02')
     shipment(config, '003', customer='C03', code='R2')
@@ -103,23 +103,23 @@ def test_history_customer_checkboxes_filter_union_clear_and_reset(config, monkey
     assert not app.exception and not calls
     assert all(w.value is None for w in app.date_input)
     search(app, 'P1')
-    assert not app.exception and len(app.checkbox) == 2
+    assert not app.exception and len(app.toggle) == 2
     assert len(app.dataframe[0].value) == 3
-    first_key, second_key = app.checkbox[0].key, app.checkbox[1].key
-    app.checkbox(key=first_key).check().run()
+    first_key, second_key = app.toggle[0].key, app.toggle[1].key
+    app.toggle(key=first_key).set_value(True).run()
     assert set(app.dataframe[0].value['客戶編號']) == {'C01'}
-    app.checkbox(key=second_key).check().run()
+    app.toggle(key=second_key).set_value(True).run()
     assert len(app.dataframe[0].value) == 3
-    app.checkbox(key=first_key).uncheck().run()
+    app.toggle(key=first_key).set_value(False).run()
     assert set(app.dataframe[0].value['客戶編號']) == {'C02'}
-    app.checkbox(key=second_key).uncheck().run()
+    app.toggle(key=second_key).set_value(False).run()
     assert len(app.dataframe[0].value) == 3 and len(calls) == 1
-    app.checkbox(key=first_key).check().run()
+    app.toggle(key=first_key).set_value(True).run()
     search(app, 'R2')
-    assert not app.exception and not app.checkbox
+    assert not app.exception and not app.toggle
     assert set(app.dataframe[0].value['客戶編號']) == {'C03'}
     search(app, 'P1')
-    assert not any(w.value for w in app.checkbox)
+    assert not any(w.value for w in app.toggle)
     assert len(app.dataframe[0].value) == 3
 
 
@@ -129,7 +129,7 @@ def test_history_dates_single_customer_empty_and_invalid_clear_old_results(confi
     app = history_app(config)
     app.date_input(key='product_history_start').set_value(date(2026, 10, 1))
     search(app, 'P1')
-    assert not app.exception and not app.checkbox
+    assert not app.exception and not app.toggle
     assert len(app.dataframe[0].value) == 1
     app.date_input(key='product_history_end').set_value(date(2026, 9, 1))
     search(app, 'P1')
@@ -137,7 +137,7 @@ def test_history_dates_single_customer_empty_and_invalid_clear_old_results(confi
     app.date_input(key='product_history_start').set_value(None)
     app.date_input(key='product_history_end').set_value(None)
     search(app, 'UNKNOWN')
-    assert app.info and not app.checkbox and not app.dataframe
+    assert app.info and not app.toggle and not app.dataframe
 
 
 def test_price_history_exact_comparisons_groups_reversals_and_void(config):
@@ -193,10 +193,10 @@ def test_price_tab_uses_earlier_baseline_and_shares_customer_filter(config, monk
     prices = app.tabs[1].dataframe[0].value
     assert prices['異動類型'].tolist() == ['初始售價', '調漲']
     assert prices.iloc[1]['原單價'] == '100' and prices.iloc[1]['漲跌'] == '+20'
-    app.checkbox[0].check().run()
+    app.toggle[0].set_value(True).run()
     assert set(app.tabs[1].dataframe[0].value['客戶編號']) == {'C01'}
     assert len(calls) == 1
-    app.checkbox[0].uncheck().run()
+    app.toggle[0].set_value(False).run()
     app.date_input(key='product_history_start').set_value(None)
     search(app, 'P1')
     assert sum(app.tabs[1].dataframe[0].value['異動類型'] == '初始售價') == 2
@@ -239,7 +239,7 @@ def test_related_code_picker_all_customers_latest_and_price_groups(config, monke
     assert picker.value == "69960"
     assert any("69960M" in notice.value and "2026-11-01" in notice.value for notice in app.info)
     assert set(app.tabs[0].dataframe[0].value["貨品／配方編號"]) == {"69960"}
-    app.checkbox[0].check().run()
+    app.toggle[0].set_value(True).run()
     assert any("所選客戶最近一筆出貨：C01 · 69960M" in item.value for item in app.caption)
     app.selectbox(key=picker.key).set_value("69960M").run()
     assert set(app.tabs[0].dataframe[0].value["貨品／配方編號"]) == {"69960M"}
@@ -248,11 +248,11 @@ def test_related_code_picker_all_customers_latest_and_price_groups(config, monke
     prices = app.tabs[1].dataframe[0].value
     assert set(prices["貨品／配方編號"]) == {"69960", "69960A", "69960M"}
     assert set(prices["異動類型"]) == {"初始售價"}
-    app.checkbox[0].uncheck().run()
+    app.toggle[0].set_value(False).run()
     assert len(app.tabs[0].dataframe[0].value) == 4 and len(calls) == 1
     search(app, "69960M")
     assert app.selectbox(key=f"product_history_variant_{app.session_state['product_history_epoch']}").value == "69960M"
-    assert not any(checkbox.value for checkbox in app.checkbox)
+    assert not any(toggle.value for toggle in app.toggle)
 
 
 def test_single_suffix_match_shows_actual_code_in_details_and_prices(config):

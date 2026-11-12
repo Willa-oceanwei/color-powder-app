@@ -23,7 +23,9 @@ from .accounting_widgets import widget_default, widget_index
 from .accounting_navigation import is_accounting_action
 from .customer_display import CustomerDisplay
 from .list_ui import render_selection_table
-from .customer_repository import customer_display_name, CONTACT_FIELDS, list_customers
+from .customer_repository import (
+    CONTACT_FIELDS, CustomerError, CustomerNotFound, customer_display_name, get_customer, list_customers,
+)
 from .shipment_repository import (
     TAX_MODES, ShipmentError, blank_shipment, calculate, copy_shipment, get_shipment,
     list_shipments, printable_shipment, save_shipment, void_shipment, update_shipment_item_notes, update_shipment_notes,
@@ -688,7 +690,18 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                 key=prefix + "customer_picker",
             )
             if selected_customer != document["customer_id"]:
-                customer = next((row for row in customers if row["customer_id"] == selected_customer), {})
+                try:
+                    customer = get_customer(config, selected_customer) if selected_customer else {}
+                except CustomerNotFound as error:
+                    st.error(str(error))
+                    st.stop()
+                except CustomerError as error:
+                    # A temporarily unavailable detail lookup can still use
+                    # the customer snapshot loaded for this draft.
+                    customer = next((row for row in customers if row["customer_id"] == selected_customer), None)
+                    if customer is None:
+                        st.error(str(error))
+                        st.stop()
                 name = customer.get("name", "")
                 document.update(customer_id=selected_customer, customer_name=name,
                                 recipient_id=selected_customer, recipient_name=name)

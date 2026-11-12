@@ -6,7 +6,7 @@ import pytest
 from streamlit.testing.v1 import AppTest
 
 from utils.customer_repository import CustomerInput, create_customer, list_customers, update_customer
-from utils.database import DatabaseConfig, connect, initialize_database, initialize_database_with_health
+from utils.database import SCHEMA_VERSION, DatabaseConfig, connect, initialize_database, initialize_database_with_health
 from utils.sheet_import import import_sheet_values
 from utils.shipment_repository import blank_shipment, get_shipment, printable_shipment, save_shipment
 
@@ -56,7 +56,7 @@ def test_schema_27_adds_columns_to_existing_customer_table(config):
             conn.execute(f"ALTER TABLE customers DROP COLUMN {column}")
         conn.execute("DELETE FROM schema_migrations WHERE version=27")
     _, health = initialize_database_with_health(config)
-    assert health.schema_version == 31 and health.schema_compatible
+    assert health.schema_version == SCHEMA_VERSION and health.schema_compatible
     assert list_customers(config)[0]["name"] == "原客戶"
     assert list_customers(config)[0]["address"] == ""
 

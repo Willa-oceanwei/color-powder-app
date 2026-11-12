@@ -131,8 +131,8 @@ def render_product_transactions(config):
             counts = Counter(row["customer_id"] for row in family_rows)
             with st.container(height=min(360, max(160, 56 * len(customers) + 24)), border=True):
                 for index, customer_id in enumerate(sorted(customers)):
-                    if st.checkbox(f"{customer_id} · {customers[customer_id]}（{counts[customer_id]} 筆）",
-                                   key=f"product_history_customer_{result['epoch']}_{index}"):
+                    if st.toggle(f"{customer_id} · {customers[customer_id]}（{counts[customer_id]} 筆）",
+                                 key=f"product_history_customer_{result['epoch']}_{index}"):
                         selected.append(customer_id)
     else:
         table_col = st.container()

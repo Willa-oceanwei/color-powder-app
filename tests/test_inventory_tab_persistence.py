@@ -1,29 +1,139 @@
+import ast
+from io import BytesIO
 from pathlib import Path
+
+import pandas as pd
+import streamlit as st
+from streamlit.testing.v1 import AppTest
 
 
 APP_SOURCE = (Path(__file__).parents[1] / "app.py").read_text(encoding="utf-8")
 
 
-def test_inventory_tabs_have_a_page_scoped_persistence_controller():
-    assert 'const storageKey = "inventory_active_tab";' in APP_SOURCE
-    assert "function bindInventoryTabs()" in APP_SOURCE
-    assert "window.parent.sessionStorage.setItem(storageKey, String(idx));" in APP_SOURCE
+def inventory_app():
+    page = next(node for node in ast.walk(ast.parse(APP_SOURCE))
+                if isinstance(node, ast.If) and ast.unparse(node.test) == "menu == '庫存區'")
+    body = ast.unparse(ast.Module(body=page.body, type_ignores=[]))
+    root = str(Path(__file__).parents[1])
+    return AppTest.from_string(f"""
+import sys
+sys.path.insert(0, {root!r})
+from pathlib import Path
+from types import SimpleNamespace
+import streamlit as st
+from utils.inventory_audit import recent_confirmed_audit_keys
+from utils.inventory_navigation import (
+    CUSTOMER_STOCK_INPUTS, INVENTORY_VIEW_KEY, INVENTORY_VIEWS, MOVEMENT_VIEWS,
+    ORDER_VIEWS, RECIPE_VIEWS, remember_audit_upload, retain_inventory_widgets, selected_inventory_view,
+)
+DATABASE_CONFIG = None
+reads = st.session_state['reads'] = []
+def list_inventory_movements(config):
+    reads.append('movements')
+    return []
+def list_recipes(config):
+    reads.append('recipes')
+    return []
+def list_production_orders(config, *, include_cancelled):
+    assert include_cancelled
+    reads.append('orders')
+    if st.session_state.get('orders_unavailable'):
+        raise RuntimeError('temporary read failure')
+    return st.session_state.get('orders', [])
+def list_color_powders(config):
+    reads.append('powders')
+    return []
+def list_customer_inventory_records(config):
+    reads.append('customer inventory')
+    return []
+def render_empty_state(message):
+    st.info(message)
+customer_display = SimpleNamespace(
+    selectbox=lambda target, *args, **kwargs: target.selectbox(*args, **kwargs),
+    frame=lambda frame: frame,
+)
+retain_inventory_widgets(st.session_state, selected_inventory_view(st.session_state))
+""" + body)
 
 
-def test_generic_controller_skips_inventory_tabs():
-    inventory_labels = "📦 初始|📊 查詢|📋 盤點|🏆 排行|🧮 用量|🧴 色母|👤 客戶"
-    assert inventory_labels in APP_SOURCE
-    assert "if (PAGE_MANAGED_TAB_LABELS.has(getTabLabels(tabList))) return;" in APP_SOURCE
+def test_inventory_only_renders_and_loads_the_selected_view():
+    app = inventory_app().run()
+    assert not app.exception
+    assert app.session_state["reads"] == ["movements"]
+    assert {w.label for w in app.button} >= {"💾 儲存初始庫存"}
+    assert app.radio(key="inventory_view").value == "initial"
+
+    app.radio(key="inventory_view").set_value("query").run()
+    assert not app.exception
+    assert app.session_state["reads"] == ["recipes", "orders", "movements"]
+    assert {w.label for w in app.button} == {"計算庫存"}
+
+    app.radio(key="inventory_view").set_value("customer").run()
+    assert not app.exception
+    assert app.session_state["reads"] == ["customer inventory"]
+    assert "✅ 新增" in {w.label for w in app.button}
 
 
-def test_inventory_controller_targets_the_complete_unique_tab_set():
-    expected_labels = (
-        '["📦 初始", "📊 查詢", "📋 盤點", "🏆 排行", '
-        '"🧮 用量", "🧴 色母", "👤 客戶"]'
-    )
-    assert expected_labels in APP_SOURCE
-    assert "labels.length === tabTexts.length" in APP_SOURCE
-    assert "tabTexts.every((label, idx) => labels[idx] === label)" in APP_SOURCE
+def test_switching_inventory_views_retains_unsubmitted_inputs_and_refreshes_orders():
+    app = inventory_app().run()
+    app.text_input(key="ini_color").set_value("P123")
+    app.number_input(key="ini_qty").set_value(25.0).run()
+    app.radio(key="inventory_view").set_value("query").run()
+    app.text_input(key="stock_powder").set_value("P123")
+    app.selectbox(key="match_mode").set_value("精準匹配").run()
+
+    app.radio(key="inventory_view").set_value("initial").run()
+    assert not app.exception
+    assert app.text_input(key="ini_color").value == "P123"
+    assert app.number_input(key="ini_qty").value == 25.0
+    app.session_state["stock_query_result"] = [{"舊結果": True}]
+    app.session_state["orders"] = [{"生產單號": "A", "取消狀態": "已取消"}]
+    app.radio(key="inventory_view").set_value("query").run()
+    assert not app.exception
+    assert app.session_state["reads"] == ["orders", "movements"]
+    assert app.text_input(key="stock_powder").value == "P123"
+    assert app.selectbox(key="match_mode").value == "精準匹配"
+    assert "stock_query_result" not in app.session_state
+
+
+def test_inventory_can_leave_a_view_when_order_refresh_fails():
+    app = inventory_app().run()
+    app.session_state["orders_unavailable"] = True
+    app.radio(key="inventory_view").set_value("query").run()
+    assert not app.exception and app.error
+    assert app.session_state["reads"] == ["recipes", "orders"]
+    assert not app.button
+    app.radio(key="inventory_view").set_value("customer").run()
+    assert not app.exception and not app.error
+    assert app.session_state["reads"] == ["customer inventory"]
+
+
+def test_inventory_audit_preserves_upload_and_unsaved_edits_across_views(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    app = inventory_app().run()
+    app.radio(key="inventory_view").set_value("audit").run()
+    upload = BytesIO(b"test upload")
+    upload.name = "audit.csv"
+    app.session_state["stock_audit_uploaded_file"] = upload
+    app.session_state["stock_audit_result"] = pd.DataFrame([{
+        "儲位": "A", "色粉編號": "P1", "狀態": "🔴 重盤", "備註": "", "已確認": False,
+    }])
+
+    def edit_once(frame, *args, **kwargs):
+        return frame.assign(備註="待確認") if st.session_state.get("enter_note") else frame
+
+    monkeypatch.setattr(st, "data_editor", edit_once)
+    app.session_state["enter_note"] = True
+    app.run()
+    app.session_state["enter_note"] = False
+    app.radio(key="inventory_view").set_value("initial").run()
+    app.radio(key="inventory_view").set_value("audit").run()
+    assert not app.exception
+    assert app.session_state["stock_audit_editor_draft"][1]["備註"].tolist() == ["待確認"]
+    assert any("audit.csv" in caption.value for caption in app.caption)
+
+    app.button(key="stock_audit_clear_upload").click().run()
+    assert "stock_audit_uploaded_file" not in app.session_state
 
 
 def test_recalculated_inventory_audit_uses_a_fresh_editor_state():
@@ -33,7 +143,8 @@ def test_recalculated_inventory_audit_uses_a_fresh_editor_state():
     ]
 
     assert 'st.session_state["stock_audit_editor_revision"] = (' in audit_source
-    assert 'key=f"stock_audit_editor_{st.session_state.get(\'stock_audit_editor_revision\', 0)}"' in audit_source
+    assert 'editor_revision = st.session_state.get("stock_audit_editor_revision", 0)' in audit_source
+    assert 'key=f"stock_audit_editor_{editor_revision}"' in audit_source
 
 
 def test_saving_initial_stock_invalidates_previous_audit_snapshot():

@@ -7,7 +7,7 @@ import pytest
 from streamlit.testing.v1 import AppTest
 
 from utils.customer_repository import CustomerInput, create_customer, update_customer
-from utils.database import DatabaseConfig, connect, initialize_database, database_health_check
+from utils.database import SCHEMA_VERSION, DatabaseConfig, connect, initialize_database, database_health_check
 from utils.receipt_repository import list_receipts, save_receipt, void_receipt
 from utils.receivable_report import build_statements, render_statement_print, statement_pages
 from utils.shipment_repository import ShipmentError, blank_shipment, get_shipment, list_shipments, save_shipment, void_shipment
@@ -270,7 +270,7 @@ def test_schema_26_upgrade_preserves_data(config):
         conn.execute("DROP TABLE shipment_receipts")
         conn.execute("DELETE FROM schema_migrations WHERE version=26")
     initialize_database(config.path)
-    assert database_health_check(config).schema_version == 31
+    assert database_health_check(config).schema_version == SCHEMA_VERSION
     assert get_shipment(config, d["id"])["total_amount"] == "210"
     assert not list_receipts(config, d["id"])
 
@@ -370,11 +370,14 @@ render_receivable_statement(DatabaseConfig(backend="sqlite",path=Path({str(confi
     assert export_calls[-1][1]['company_name'] == '加舜企業有限公司'
     next(w for w in app.button if w.label == '預覽').click().run()
     assert set(app.session_state['receivable_exports']) == {'signature'}
+    next(w for w in app.date_input if w.label == "收款日期").set_value(date(2026, 10, 31))
     next(w for w in app.number_input if w.label == "本次收款金額").set_value(50)
     next(w for w in app.button if w.label == "登錄收款").click().run()
     assert not app.exception
     assert list_receipts(config, d["id"])[0]["amount"] == "50"
     assert next(w for w in app.number_input if w.label == "本次收款金額").value == 0
+    assert next(w for w in app.date_input if w.label == "起始帳款日期").value == date(2026, 10, 1)
+    assert next(w for w in app.date_input if w.label == "結束帳款日期").value == date(2026, 10, 31)
     next(w for w in app.button if w.label == "預覽").click().run()
     assert app.session_state["receivable_pages"][0]["statement"]["received"] == "50"
     next(w for w in app.text_input if w.label == "作廢收款原因").set_value("測試誤登")

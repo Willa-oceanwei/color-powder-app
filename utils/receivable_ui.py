@@ -31,10 +31,12 @@ def render_receivable_statement(config, *, title="應收帳款明細表"):
     st.html(COMPACT_STYLE.replace("shipment-page", "receivable-page"))
     tabs = st.tabs(["明細表預覽", "收款登錄"] + (["每月收款總覽"] if title == "應收帳款明細表" else []))
     report_tab, receipt_tab = tabs[:2]
-    with receipt_tab:
-        render_receipt_entry(config)
+    # Receipt writes can trigger a full rerun. Render the filters before that
+    # happens so Streamlit retains the selected report range.
     with report_tab:
         render_report(config, title=title)
+    with receipt_tab:
+        render_receipt_entry(config)
     if len(tabs) == 3:
         with tabs[2]:
             render_monthly_receipt_summary(config)
