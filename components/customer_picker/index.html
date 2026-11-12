@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    body { margin: 0; color: #cfd8e3; font: 1rem sans-serif; }
+    label { display: block; margin-bottom: 8px; font-size: .875rem; }
+    .field { position: relative; }
+    .field span { position: absolute; right: 12px; top: 9px; pointer-events: none; }
+    input { width: 100%; height: 40px; padding: 0 34px 0 12px; color: #fff;
+      background: #152637; border: 1px solid #527086; border-radius: 8px; font: inherit; }
+    input:focus { outline: 2px solid #65b5e2; outline-offset: -2px; }
+    input::placeholder { color: #a3afbb; }
+    input:disabled { opacity: .55; }
+    #results { margin-top: 4px; max-height: 240px; overflow-y: auto; border: 1px solid #527086;
+      border-radius: 8px; background: #101419; }
+    [role="option"], #empty { display: block; width: 100%; padding: 9px 12px; color: inherit;
+      background: transparent; border: 0; font: inherit; text-align: left; }
+    [role="option"] { cursor: pointer; overflow-wrap: anywhere; }
+    [role="option"]:hover, [role="option"][aria-selected="true"] { background: #243648; color: #fff; }
+  </style>
+</head>
+<body>
+  <label for="query">搜尋結果</label>
+  <div class="field">
+    <input id="query" role="combobox" aria-autocomplete="list" aria-controls="results"
+           aria-expanded="false" autocomplete="off" placeholder="從搜尋結果選擇客戶" disabled>
+    <span aria-hidden="true">⌄</span>
+  </div>
+  <div id="results" role="listbox" aria-label="符合的客戶" hidden></div>
+  <div id="empty" role="status" hidden>查無符合客戶</div>
+  <script>
+    const query = document.getElementById("query");
+    const results = document.getElementById("results");
+    const empty = document.getElementById("empty");
+    let options = [];
+    let matches = [];
+    let active = -1;
+
+    function send(type, fields = {}) {
+      window.parent.postMessage({isStreamlitMessage: true, type, ...fields}, "*");
+    }
+
+    function resize() {
+      send("streamlit:setFrameHeight", {height: document.body.offsetHeight + 2});
+    }
+
+    function close() {
+      query.setAttribute("aria-expanded", "false");
+      query.removeAttribute("aria-activedescendant");
+      results.hidden = empty.hidden = true;
+      resize();
+    }
+
+    function choose(option) {
+      query.value = option.label;
+      close();
+      send("streamlit:setComponentValue", {value: option.id, dataType: "json"});
+    }
+
+    function showResults() {
+      if (query.disabled) return;
+      const words = query.value.trim().toLowerCase().split(/\s+/);
+      matches = options.filter(({label}) => words.every(word => label.toLowerCase().includes(word)));
+      active = -1;
+      query.removeAttribute("aria-activedescendant");
+      results.replaceChildren(...matches.map((option, index) => {
+        const row = document.createElement("button");
+        row.type = "button";
+        row.id = `result-${index}`;
+        row.tabIndex = -1;
+        row.setAttribute("role", "option");
+        row.setAttribute("aria-selected", "false");
+        row.textContent = option.label;
+        row.addEventListener("pointerdown", event => event.preventDefault());
+        row.addEventListener("click", () => choose(option));
+        return row;
+      }));
+      query.setAttribute("aria-expanded", "true");
+      results.hidden = matches.length === 0;
+      empty.hidden = matches.length > 0;
+      results.scrollTop = 0;
+      resize();
+    }
+
+    query.addEventListener("focus", showResults);
+    query.addEventListener("click", () => {
+      if (query.getAttribute("aria-expanded") === "false") showResults();
+    });
+    query.addEventListener("input", showResults);
+    query.addEventListener("blur", close);
+    query.addEventListener("keydown", event => {
+      if (event.isComposing) return;
+      if (event.key === "Escape") {
+        close();
+      } else if (event.key === "Enter" && active >= 0 && !results.hidden) {
+        event.preventDefault();
+        choose(matches[active]);
+      } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        event.preventDefault();
+        if (query.getAttribute("aria-expanded") === "false") showResults();
+        if (!matches.length) return;
+        if (active >= 0) results.children[active].setAttribute("aria-selected", "false");
+        active = event.key === "ArrowDown" ? Math.min(active + 1, matches.length - 1)
+          : active < 0 ? matches.length - 1 : Math.max(0, active - 1);
+        const row = results.children[active];
+        row.setAttribute("aria-selected", "true");
+        query.setAttribute("aria-activedescendant", row.id);
+        row.scrollIntoView({block: "nearest"});
+      }
+    });
+
+    window.addEventListener("message", event => {
+      if (event.source !== window.parent || event.data?.type !== "streamlit:render") return;
+      const incoming = event.data.args.options;
+      if (JSON.stringify(incoming) !== JSON.stringify(options)) {
+        options = incoming;
+        query.value = "";
+        close();
+      }
+      query.disabled = event.data.disabled || !options.length;
+      query.placeholder = options.length ? "從搜尋結果選擇客戶" : "查無符合客戶";
+      resize();
+    });
+
+    send("streamlit:componentReady", {apiVersion: 1});
+    resize();
+  </script>
+</body>
+</html>
