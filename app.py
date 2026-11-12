@@ -3952,6 +3952,7 @@ elif menu == "客戶名單":
     @st.fragment
     def render_customer_workspace():
         from streamlit.runtime.scriptrunner import get_script_run_ctx
+        from utils.customer_picker import render_customer_picker
         from utils.customer_repository import get_customer
 
         # Reset widget state before the picker is created, including fragment reruns.
@@ -4149,13 +4150,9 @@ elif menu == "客戶名單":
                         exact_id = next((cid for cid in matches if cid.casefold() == query), None)
                         if exact_id is not None:
                             matches = [exact_id]
-                        selected_id = result_col.selectbox(
-                            "搜尋結果", matches, index=None,
-                            placeholder="從搜尋結果選擇客戶" if matches else "查無符合客戶", key="customer_action_id",
-                            disabled=not matches,
-                            format_func=lambda cid: names[cid],
-                        )
-                        if selected_id:
+                        with result_col:
+                            selected_id = render_customer_picker(matches, names, key="customer_action_id")
+                        if selected_id in matches:
                             try:
                                 current_customer = get_customer(DATABASE_CONFIG, selected_id)
                             except CustomerError as exc:

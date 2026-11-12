@@ -1,6 +1,7 @@
 import ast
 import json
 from pathlib import Path
+from textwrap import indent
 
 import pytest
 from streamlit.testing.v1 import AppTest
@@ -75,8 +76,17 @@ import pandas as pd
 import streamlit as st
 from utils.customer_repository import *
 from utils.database import DatabaseConfig
+from unittest.mock import patch
 DATABASE_CONFIG=DatabaseConfig(backend="sqlite",path=Path({str(config.path)!r}))
-''' + body
+
+def app_test_picker(matches, names, *, key):
+    # AppTest exercises the Python workflow without an iframe. Use a native
+    # widget to send the same customer ID the browser picker would return.
+    return st.selectbox("搜尋結果", matches, index=None, key=key,
+                        disabled=not matches, format_func=names.__getitem__)
+
+with patch("utils.customer_picker.render_customer_picker", app_test_picker):
+''' + indent(body, "    ")
     return AppTest.from_string(script).run(timeout=30)
 
 
