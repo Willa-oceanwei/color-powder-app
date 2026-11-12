@@ -22,6 +22,7 @@ from utils import database as database_utils
 from utils.customer_display import CustomerDisplay
 from utils.read_cache import invalidate_read_cache
 from utils.navigation_data import warm_navigation_reads
+from utils.production_navigation import PRODUCTION_VIEW_KEY, PRODUCTION_VIEWS, retain_production_widgets
 from utils.inventory_navigation import (
     CUSTOMER_STOCK_INPUTS, INVENTORY_VIEW_KEY, INVENTORY_VIEWS, MOVEMENT_VIEWS, ORDER_VIEWS,
     RECIPE_VIEWS, remember_audit_upload, retain_inventory_widgets, selected_inventory_view,
@@ -1164,7 +1165,6 @@ def apply_tab_persistence_fix():
         (function () {
           const STORAGE_KEY = "cp_tab_state_v1";
           const PAGE_MANAGED_TAB_LABELS = new Set([
-            "🛸 生產單建立|📜 生產單記錄表|👀 生產單預覽/修改/取消",
             "👀 預覽|🛠️ 修改 / 取消",
             "👤 員工薪資設定|📅 每月薪資|📚 薪資歷史|⚙️ 薪資規則",
           ]);
@@ -3517,6 +3517,7 @@ def render_big_label_editor(label_order, *, key_prefix):
         })();
         </script>
         """, height=0)
+        st.caption("切換生產單分頁前，請先儲存標籤編輯。")
         # Submit the active cell edit and the save action in the same request.
         with st.form(key=f"{key_prefix}_label_form_{order_no_for_label}", border=False):
             st.markdown('<span class="big-label-form-anchor"></span>', unsafe_allow_html=True)
@@ -3771,6 +3772,8 @@ log_performance("menu_selected", page_render_started_at, menu=menu)
 
 if menu == "庫存區" or INVENTORY_VIEW_KEY in st.session_state:
     retain_inventory_widgets(st.session_state, selected_inventory_view(st.session_state) if menu == "庫存區" else None)
+if menu != "生產單管理" and PRODUCTION_VIEW_KEY in st.session_state:
+    retain_production_widgets(st.session_state, None)
 warm_navigation_reads(DATABASE_CONFIG, st.session_state, menu, customer_display)
 
 if menu != "出貨單":
@@ -6192,15 +6195,11 @@ def render_production_order_workspace():
         )
         st.session_state.pop("order_toast", None)
 
-    # 生產單主分頁使用 session-scoped 狀態，不與其他頁面共用儲存 key。
-    # apply_tab_persistence_fix() 會明確略過這組 labels，避免兩套 controller 競爭。
+    # 預覽內層的兩個分頁仍由瀏覽器保留選取位置。
     components.html(
         """
         <script>
         (function () {
-          const storageKey = "order_mgmt_active_tab";
-          const tabTexts = ["🛸 生產單建立", "📜 生產單記錄表", "👀 生產單預覽/修改/取消"];
-
           const restored = new WeakSet();
           const previousObserver = window.parent.__productionTabObserver;
           if (previousObserver) previousObserver.disconnect();
@@ -6232,7 +6231,6 @@ def render_production_order_workspace():
             });
           }
           function bindOrderTabs() {
-            bindTabGroup(storageKey, tabTexts);
             bindTabGroup("order_mgmt_detail_tab", ["👀 預覽", "🛠️ 修改 / 取消"]);
           }
           bindOrderTabs();
@@ -6246,11 +6244,15 @@ def render_production_order_workspace():
         width=0,
     )
 
-    tab1, tab2, tab3 = st.tabs(["🛸 生產單建立", "📜 生產單記錄表", "👀 生產單預覽/修改/取消"])
+    production_view = st.radio(
+        "生產單功能", tuple(PRODUCTION_VIEWS), format_func=PRODUCTION_VIEWS.__getitem__,
+        horizontal=True, key=PRODUCTION_VIEW_KEY, label_visibility="collapsed",
+    )
+    retain_production_widgets(st.session_state, production_view)
     # ============================================================
     # Tab 1: 生產單建立
     # ============================================================
-    with tab1:
+    if production_view == "create":
         # ================== Tab1 安全初始化 ==================
         # 確保控制旗標存在
         if "show_confirm_panel" not in st.session_state:
@@ -6703,7 +6705,7 @@ def render_production_order_workspace():
             elif not st.session_state.get("new_order_saved", False):
                 st.session_state[merge_decision_key] = "new"
 
-            with st.form("order_detail_form_tab1"):
+            with st.container(border=True):
                 st.markdown(f"""
                     <div style="display:flex;flex-wrap:wrap;gap:24px;padding:10px 4px 16px;
                                 border-bottom:1px solid rgba(255,255,255,0.08);margin-bottom:16px;">
@@ -6805,12 +6807,12 @@ def render_production_order_workspace():
             
                 col_submit1, col_submit2 = st.columns([1, 1])
                 with col_submit1:
-                    submitted = st.form_submit_button("💾 僅儲存生產單")
+                    submitted = st.button("💾 僅儲存生產單", key="save_production_create")
             
                 is_colorant = recipe_is_colorant
                 with col_submit2:
                     if is_colorant:
-                        continue_to_oem = st.form_submit_button("✅ 儲存並轉代工管理")
+                        continue_to_oem = st.button("✅ 儲存並轉代工管理", key="save_production_and_outsource")
                     else:
                         continue_to_oem = False
 
@@ -7353,7 +7355,8 @@ def render_production_order_workspace():
         # ============================================================
     # Tab 2: 生產單記錄表（✅ 補上遺漏的預覽功能）
     # ============================================================
-    with tab2:
+    display_cols = ["生產單號", "配方編號", "顏色", "客戶名稱", "出貨數量", "取消狀態", "取消原因", "建立時間"]
+    if production_view == "history":
 
         search_order = st.text_input(
             label="搜尋生產單記錄",
@@ -7374,8 +7377,9 @@ def render_production_order_workspace():
         if "取消狀態" in df_filtered.columns:
             df_filtered = df_filtered[df_filtered["取消狀態"] != "已取消"].copy()
     
-        df_filtered["建立時間"] = pd.to_datetime(df_filtered["建立時間"], errors="coerce")
-        df_filtered = df_filtered.sort_values(by="建立時間", ascending=False)
+        if "建立時間" in df_filtered.columns:
+            df_filtered["建立時間"] = pd.to_datetime(df_filtered["建立時間"], errors="coerce")
+            df_filtered = df_filtered.sort_values(by="建立時間", ascending=False)
     
         if "selectbox_order_limit_tab2" not in st.session_state:
             st.session_state.selectbox_order_limit_tab2 = 5
@@ -7401,13 +7405,12 @@ def render_production_order_workspace():
                 lambda row: calculate_shipment_display(row, df_recipe), axis=1
             )
     
-        display_cols = ["生產單號", "配方編號", "顏色", "客戶名稱", "出貨數量", "取消狀態", "取消原因", "建立時間"]
         existing_cols = [c for c in display_cols if c in page_data.columns]
     
         if not page_data.empty and existing_cols:
             tab2_download_order = render_selection_table(
                 customer_display.frame(page_data[existing_cols].reset_index(drop=True)),
-                page_data.to_dict("records"), key="production_history", id_field="生產單號",
+                page_data.to_dict("records"), key="production_history", id_field="生產單號", retain_selection=True,
                 height=min(500, 38 * (len(page_data) + 1) + 3),
             )
             pinned_order_id = st.session_state.get("history_labels_pinned_order_id")
@@ -7438,7 +7441,7 @@ def render_production_order_workspace():
     # ============================================================
     # Tab 3: 生產單預覽/修改/取消
     # ============================================================
-    with tab3:
+    if production_view == "manage":
     
         # ===== 修改完成通知（一定要在 Tab 3 最上方）=====
         if st.session_state.get("edit_success_message"):
@@ -7465,7 +7468,7 @@ def render_production_order_workspace():
         )
 
         # ===== 🔥 用 Form 包起來（搜尋 + 日期 + 選擇生產單）=====
-        with st.form("search_order_form_tab3"):
+        with st.container(border=True):
             
             # 📅 日期區間選擇（新增）
             col_date1, col_date2 = st.columns(2)
@@ -7490,16 +7493,14 @@ def render_production_order_workspace():
                 key="search_order_input_tab3"
             )
             
-            # ✅ Form 提交按鈕
-            submit_search = st.form_submit_button("🔍 搜尋")
+            submit_search = st.button("🔍 搜尋", key="search_production_manage")
     
         # ===== 只有按下搜尋才執行篩選 =====
         if submit_search or st.session_state.get("last_search_tab3_done", False):
 
-            # 搜尋送出時一定重讀 Turso。生產單建立表單與查詢分頁在同一個
-            # Streamlit run 內，若只沿用頁面開始時的 df_order，剛建立的資料可能
-            # 要等到下一次整頁 rerun 才出現。以儲存庫即時結果取代舊快照。
+            # 只在送出搜尋時更新條件與重讀 Turso。
             if submit_search:
+                st.session_state["production_manage_filters"] = (search_date_start, search_date_end, search_order)
                 try:
                     df_order = pd.DataFrame(list_production_orders(DATABASE_CONFIG, include_cancelled=True))
                     if not df_order.empty:
@@ -7512,6 +7513,9 @@ def render_production_order_workspace():
             st.session_state.last_search_tab3_done = True
             
             # 📌 1. 關鍵字篩選（多條件 AND）
+            search_date_start, search_date_end, search_order = st.session_state.get(
+                "production_manage_filters", (None, None, ""),
+            )
             order_keywords_tab3 = split_search_keywords(search_order)
             df_filtered_tab3 = filter_df_by_keywords(
                 df_order,
@@ -7540,8 +7544,9 @@ def render_production_order_workspace():
                     ]
     
             # 📌 3. 建立時間排序
-            df_filtered_tab3["建立時間"] = pd.to_datetime(df_filtered_tab3["建立時間"], errors="coerce")
-            df_filtered_tab3 = df_filtered_tab3.sort_values(by="建立時間", ascending=False)
+            if "建立時間" in df_filtered_tab3.columns:
+                df_filtered_tab3["建立時間"] = pd.to_datetime(df_filtered_tab3["建立時間"], errors="coerce")
+                df_filtered_tab3 = df_filtered_tab3.sort_values(by="建立時間", ascending=False)
     
             # ===== 📊 顯示搜尋結果表格（新增回來）=====
             selected_order = None
@@ -7569,11 +7574,12 @@ def render_production_order_workspace():
                 )
                 
                 # ===== 顯示表格 =====
+                existing_cols = [c for c in display_cols if c in df_page.columns]
                 if not df_page.empty and existing_cols:
                     table_height = min(400, 38 * (len(df_page) + 1) + 3)
                     chosen_order = render_selection_table(
                         customer_display.frame(df_page[existing_cols].reset_index(drop=True)),
-                        df_page.to_dict("records"), key="production_manage", id_field="生產單號",
+                        df_page.to_dict("records"), key="production_manage", id_field="生產單號", retain_selection=True,
                         height=table_height,
                     )
                     saved_order_id = st.session_state.get("production_manage_saved_order_id")

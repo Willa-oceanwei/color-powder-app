@@ -41,6 +41,34 @@ def test_no_selection_empty_and_disabled_cannot_trigger_actions(monkeypatch):
         list_ui.render_selection_table(frame, one, key='orders', id_field='id')
 
 
+def test_retained_selection_survives_remount_and_clears_on_deselect(monkeypatch):
+    records = [{"id": "A"}, {"id": "B"}]
+    frame = pd.DataFrame(records)
+    state = {}
+    calls = []
+    monkeypatch.setattr(list_ui.st, "session_state", state)
+
+    def dataframe(data, **kwargs):
+        calls.append(kwargs)
+        rows = state.get(kwargs["key"], {}).get("selection", {}).get("rows", [])
+        return SimpleNamespace(selection=SimpleNamespace(rows=rows))
+
+    monkeypatch.setattr(list_ui.st, "dataframe", dataframe)
+
+    def render():
+        return list_ui.render_selection_table(frame, records, key="orders", id_field="id", retain_selection=True)
+
+    assert render() is None
+    widget = calls[-1]
+    state[widget["key"]] = {"selection": {"rows": [1]}}
+    widget["on_select"]()
+    del state[widget["key"]]
+    assert render() is records[1]
+    state[widget["key"]] = {"selection": {"rows": []}}
+    calls[-1]["on_select"]()
+    assert render() is None
+
+
 def test_compact_pagination_next_jump_limit_and_boundaries():
     root = str(Path(__file__).resolve().parents[1])
     app = AppTest.from_string(f'''import sys
