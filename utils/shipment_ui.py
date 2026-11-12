@@ -446,8 +446,12 @@ def render_shipment_management(config, *, start_new_on_entry=False):
         resume = st.columns([3, 1])
         resume[0].caption(f"暫存草稿 {len(suspended)} 筆")
         resume[1].button("繼續草稿", key="shipment_resume_draft", disabled=editing, on_click=_resume_search_draft, use_container_width=True)
-    record_key = ("records", *(st.session_state.get(key) for key in ("shipment_query", "shipment_start", "shipment_end",
-                  "shipment_include_void", "shipment_customer_start", "shipment_customer_end")))
+    search_active = bool(st.session_state.get("shipment_search_epoch"))
+    record_filters = tuple(st.session_state.get(key) for key in (
+        "shipment_query", "shipment_start", "shipment_end",
+        "shipment_include_void", "shipment_customer_start", "shipment_customer_end",
+    ))
+    record_key = ("records", *record_filters, search_active)
     saved_view = st.session_state.get("shipment_saved_view", {})
     saved_document = saved_view.get("document") if saved_view.get("config") == repr(config) else None
     saved_direction = st.session_state.get("shipment_saved_nav_direction", 0)
@@ -468,8 +472,8 @@ def render_shipment_management(config, *, start_new_on_entry=False):
             start=st.session_state.get("shipment_start"), end=st.session_state.get("shipment_end"),
             include_void=st.session_state.get("shipment_include_void", False),
             customer_start=st.session_state.get("shipment_customer_start", ""),
-            customer_end=st.session_state.get("shipment_customer_end", ""), summary=True))
-    if st.session_state.get("shipment_search_epoch"):
+            customer_end=st.session_state.get("shipment_customer_end", ""), summary=True, newest_first=search_active))
+    if search_active:
         with st.expander("查詢結果（編輯中暫停更新）" if editing else f"查詢結果 · {len(records)} 筆", expanded=True):
             if editing:
                 st.caption("草稿已保留；儲存或取消後可開啟查詢結果。")
@@ -501,7 +505,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
     navigation_records = records
     if exact_match and not showing_saved:
         # A full number locates a document; it must not limit sequential browsing.
-        navigation_key = ("number-navigation", *record_key[2:])
+        navigation_key = ("number-navigation", *record_filters[1:])
         navigation_records = cached_read(config, st.session_state, navigation_key, lambda: sorted(
             list_shipments(config, start=st.session_state.get("shipment_start"), end=st.session_state.get("shipment_end"),
                            include_void=st.session_state.get("shipment_include_void", False),

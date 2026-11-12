@@ -208,7 +208,8 @@ def _validated(document):
 
 
 @cached_read
-def list_shipments(config, *, query="", start=None, end=None, include_void=False, customer_start="", customer_end="", summary=False):
+def list_shipments(config, *, query="", start=None, end=None, include_void=False, customer_start="", customer_end="",
+                   summary=False, newest_first=False):
     if start:
         start = _valid_date(start, "起始出貨日期")
     if end:
@@ -237,8 +238,9 @@ def list_shipments(config, *, query="", start=None, end=None, include_void=False
     where = "WHERE " + " AND ".join(clauses) if clauses else ""
     fields = "id,shipment_number,shipment_date,customer_id,customer_name,net_amount,status,version" if summary else "*"
     fields += ",COALESCE(json_extract(payload_json,'$.paid_in_full'),0) AS paid_in_full"
+    order = "shipment_date DESC,shipment_number DESC,id DESC" if newest_first else "shipment_date,shipment_number,id"
     with connect_from_config(config) as conn:
-        return _mappings(conn.execute(f"SELECT {fields} FROM shipment_orders {where} ORDER BY shipment_date,shipment_number,id", tuple(args)))
+        return _mappings(conn.execute(f"SELECT {fields} FROM shipment_orders {where} ORDER BY {order}", tuple(args)))
 
 
 def get_shipment(config, shipment_id):

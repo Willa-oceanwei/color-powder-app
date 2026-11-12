@@ -231,6 +231,14 @@ render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(confi
     app.button(key='shipment_nav_上一筆').click().run()
     assert app.session_state['shipment_selected'] == saved['029542']
 
+    next(w for w in app.text_input if w.label == '出貨單號 / 客戶 / 貨品編號').set_value('C01')
+    next(b for b in app.button if b.label == '查詢').click().run()
+    assert not app.exception
+    results = next(table.value for table in app.dataframe if '出貨日期' in table.value.columns)
+    assert results['出貨日期'].tolist() == ['2026-10-03', '2026-10-02', '2026-10-01']
+    assert results['出貨單號'].tolist() == ['029543', '029541', '029542']
+    assert app.session_state['shipment_selected'] == saved['029543']
+
 
 def test_entry_defaults_new_without_reloading_saved_documents(tmp_path, monkeypatch):
     import utils.shipment_ui as ui
