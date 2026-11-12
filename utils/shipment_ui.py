@@ -614,8 +614,11 @@ def render_shipment_management(config, *, start_new_on_entry=False):
     def text(label, key, *, target=None):
         data = document if target is None else target
         widget_key = prefix + ("invoice_" if target is not None else "") + key
-        value = st.text_input(label, value=widget_default(widget_key, str(data.get(key) or "")), key=widget_key, disabled=not editing)
+        previous = str(data.get(key) or "")
+        value = st.text_input(label, value=widget_default(widget_key, previous), key=widget_key, disabled=not editing)
         if editing:
+            if target is None and key in CONTACT_FIELDS and value != previous:
+                document.setdefault("_cleared_contacts", {})[key] = not value.strip()
             data[key] = value
 
     def date_field(label, key, *, target=None, optional=False):
@@ -652,7 +655,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
     if editing and st.session_state.pop("shipment_contacts_pending", False):
         customer = next((row for row in customers if row["customer_id"] == document["customer_id"]), {})
         for field in CONTACT_FIELDS:
-            if not str(document.get(field) or "").strip():
+            if not str(document.get(field) or "").strip() and not document.get("_cleared_contacts", {}).get(field):
                 document[field] = customer.get(field) or ""
     st.markdown('<div class="shipment-section">出貨與客戶</div>', unsafe_allow_html=True)
     header = st.columns([1.25, 1.35, 1.55, 2.8])
@@ -703,6 +706,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                         st.error(str(error))
                         st.stop()
                 name = customer.get("name", "")
+                document.pop("_cleared_contacts", None)
                 document.update(customer_id=selected_customer, customer_name=name,
                                 recipient_id=selected_customer, recipient_name=name)
                 for field in CONTACT_FIELDS:
@@ -803,7 +807,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
         for row_index, item in enumerate(document["items"]):
             candidates = matcher.match(item.get("code")) if item.get("code") else matcher.match(item.get("name"), by_name=True, history=history)
             if len(candidates) > 1:
-                left, right = st.columns([4, 1])
+                left, right = st.columns([4, 1], vertical_alignment="bottom")
                 choice = left.selectbox(f"第 {row_index + 1} 項相符貨品", candidates, format_func=lambda c: f"{c} · {all_choices[c]['name']}", key=prefix + f"match_{row_index}")
                 if right.button("採用", key=prefix + f"apply_{row_index}"):
                     before = deepcopy(document["items"])
@@ -966,8 +970,11 @@ def render_shipment_management(config, *, start_new_on_entry=False):
         try:
             if any(len(matcher.match(item.get("code"))) > 1 for item in document["items"]):
                 raise ShipmentError("有多筆相符貨品，請先選擇並採用完整編號。")
+            cleared_contacts = document.get("_cleared_contacts", {})
+            missing_contacts = tuple(field for field in CONTACT_FIELDS
+                                     if not cleared_contacts.get(field) and not str(document.get(field) or "").strip())
             with shipment_timing("shipment_save", item_count=len(document["items"])):
-                saved = save_shipment(config, document, sync_products=sync_products)
+                saved = save_shipment(config, document, sync_products=sync_products, fill_missing_contacts=missing_contacts)
         except ShipmentError as error:
             save_error = str(error)
             action_feedback.error(save_error)

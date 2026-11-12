@@ -9,7 +9,7 @@ from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from uuid import uuid4
 
 from .read_cache import cached_read
-from .customer_repository import _mapping, _mappings
+from .customer_repository import CONTACT_FIELDS, _mapping, _mappings
 from .database import connect_from_config, utc_now_iso
 from .shipment_codes import display_code_options
 
@@ -281,7 +281,7 @@ def _next_number(conn, shipment_date):
     return prefix + f"{reserved['last_number']:04d}"
 
 
-def save_shipment(config, document, *, sync_products=False):
+def save_shipment(config, document, *, sync_products=False, fill_missing_contacts=()):
     from .customer_repository import CustomerError, require_current_customer_code
     header, items, invoice, amounts = _validated(document)
     shipment_id, now = document.get("id") or str(uuid4()), utc_now_iso()
@@ -330,10 +330,18 @@ def save_shipment(config, document, *, sync_products=False):
             if duplicate:
                 raise ShipmentError("出貨單號已存在，請使用其他單號")
         if not existing or existing["customer_id"] != header["customer_id"]:
-            customer = _mapping(conn.execute("SELECT name,lifecycle_status FROM customers WHERE customer_id=?", (header["customer_id"],)))
+            customer = _mapping(conn.execute(
+                "SELECT name,lifecycle_status,address,phone,fax,contact,tax_id FROM customers WHERE customer_id=?",
+                (header["customer_id"],),
+            ))
             if not customer or customer["lifecycle_status"] != "active":
                 raise ShipmentError("請選擇有效客戶")
             header["customer_name"] = customer["name"]
+            if not existing:
+                same_recipient = header["recipient_id"] in ("", header["customer_id"])
+                for field in CONTACT_FIELDS:
+                    if field in fill_missing_contacts and not header[field] and (field != "address" or same_recipient):
+                        header[field] = str(customer.get(field) or "").strip()
         if existing:
             if existing["status"] != "draft":
                 raise ShipmentError("已作廢出貨單不可修改")

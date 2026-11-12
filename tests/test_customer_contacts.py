@@ -290,3 +290,33 @@ render_shipment_management(DatabaseConfig(backend="sqlite",path=Path({str(config
     assert get_shipment(config, saved["id"])["address"] == "本次指定地址"
 
 
+def test_first_shipment_save_fills_missing_contacts_without_overriding_draft(config):
+    create_customer(config, CustomerInput("C01", "客戶", phone="06-1111111"))
+    root = str(Path(__file__).resolve().parents[1])
+    app = AppTest.from_string(f'''import sys
+sys.path.insert(0, {root!r})
+from pathlib import Path
+from utils.database import DatabaseConfig
+from utils.shipment_ui import render_shipment_management
+render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(config.path)!r})))
+''').run()
+    app.button(key="shipment_new").click().run()
+    epoch = app.session_state["shipment_epoch"]
+    prefix = f"shipment_{epoch}_"
+    app.selectbox(key=prefix + "number_mode").set_value("依日期生成").run()
+    app.selectbox(key=prefix + "customer_picker").set_value("C01").run()
+    app.text_input(key=prefix + "address").set_value("本次指定地址")
+    app.text_input(key=prefix + "phone").set_value("").run()
+    app.session_state[prefix + "items"] = {"edited_rows": {}, "deleted_rows": [], "added_rows": [
+        {"貨品編號": "P1", "品名": "藍", "數量": 1.0, "單位": "包", "單價": 100.0}]}
+    app.run()
+    update_customer(config, CustomerInput("C01", "客戶", address="主檔地址", phone="06-1111111",
+                                          fax="06-2222222", contact="聯絡人", tax_id="01234567"))
+    app.button(key="shipment_save").click().run()
+    assert not app.exception
+    saved = get_shipment(config, app.session_state["shipment_selected"])
+    assert saved["address"] == "本次指定地址" and saved["phone"] == ""
+    assert (saved["fax"], saved["contact"], saved["tax_id"]) == ("06-2222222", "聯絡人", "01234567")
+    assert next(w for w in app.text_input if w.label == "聯絡人").value == "聯絡人"
+
+
