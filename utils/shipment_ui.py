@@ -446,8 +446,12 @@ def render_shipment_management(config, *, start_new_on_entry=False):
         resume = st.columns([3, 1])
         resume[0].caption(f"暫存草稿 {len(suspended)} 筆")
         resume[1].button("繼續草稿", key="shipment_resume_draft", disabled=editing, on_click=_resume_search_draft, use_container_width=True)
-    record_key = ("records", *(st.session_state.get(key) for key in ("shipment_query", "shipment_start", "shipment_end",
-                  "shipment_include_void", "shipment_customer_start", "shipment_customer_end")))
+    search_active = bool(st.session_state.get("shipment_search_epoch"))
+    record_filters = tuple(st.session_state.get(key) for key in (
+        "shipment_query", "shipment_start", "shipment_end",
+        "shipment_include_void", "shipment_customer_start", "shipment_customer_end",
+    ))
+    record_key = ("records", *record_filters, search_active)
     saved_view = st.session_state.get("shipment_saved_view", {})
     saved_document = saved_view.get("document") if saved_view.get("config") == repr(config) else None
     saved_direction = st.session_state.get("shipment_saved_nav_direction", 0)
@@ -468,8 +472,8 @@ def render_shipment_management(config, *, start_new_on_entry=False):
             start=st.session_state.get("shipment_start"), end=st.session_state.get("shipment_end"),
             include_void=st.session_state.get("shipment_include_void", False),
             customer_start=st.session_state.get("shipment_customer_start", ""),
-            customer_end=st.session_state.get("shipment_customer_end", ""), summary=True))
-    if st.session_state.get("shipment_search_epoch"):
+            customer_end=st.session_state.get("shipment_customer_end", ""), summary=True, newest_first=search_active))
+    if search_active:
         with st.expander("查詢結果（編輯中暫停更新）" if editing else f"查詢結果 · {len(records)} 筆", expanded=True):
             if editing:
                 st.caption("草稿已保留；儲存或取消後可開啟查詢結果。")
@@ -501,7 +505,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
     navigation_records = records
     if exact_match and not showing_saved:
         # A full number locates a document; it must not limit sequential browsing.
-        navigation_key = ("number-navigation", *record_key[2:])
+        navigation_key = ("number-navigation", *record_filters[1:])
         navigation_records = cached_read(config, st.session_state, navigation_key, lambda: sorted(
             list_shipments(config, start=st.session_state.get("shipment_start"), end=st.session_state.get("shipment_end"),
                            include_void=st.session_state.get("shipment_include_void", False),
@@ -614,8 +618,11 @@ def render_shipment_management(config, *, start_new_on_entry=False):
     def text(label, key, *, target=None):
         data = document if target is None else target
         widget_key = prefix + ("invoice_" if target is not None else "") + key
-        value = st.text_input(label, value=widget_default(widget_key, str(data.get(key) or "")), key=widget_key, disabled=not editing)
+        previous = str(data.get(key) or "")
+        value = st.text_input(label, value=widget_default(widget_key, previous), key=widget_key, disabled=not editing)
         if editing:
+            if target is None and key in CONTACT_FIELDS and value != previous:
+                document.setdefault("_cleared_contacts", {})[key] = not value.strip()
             data[key] = value
 
     def date_field(label, key, *, target=None, optional=False):
@@ -652,7 +659,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
     if editing and st.session_state.pop("shipment_contacts_pending", False):
         customer = next((row for row in customers if row["customer_id"] == document["customer_id"]), {})
         for field in CONTACT_FIELDS:
-            if not str(document.get(field) or "").strip():
+            if not str(document.get(field) or "").strip() and not document.get("_cleared_contacts", {}).get(field):
                 document[field] = customer.get(field) or ""
     st.markdown('<div class="shipment-section">出貨與客戶</div>', unsafe_allow_html=True)
     header = st.columns([1.25, 1.35, 1.55, 2.8])
@@ -703,6 +710,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                         st.error(str(error))
                         st.stop()
                 name = customer.get("name", "")
+                document.pop("_cleared_contacts", None)
                 document.update(customer_id=selected_customer, customer_name=name,
                                 recipient_id=selected_customer, recipient_name=name)
                 for field in CONTACT_FIELDS:
@@ -803,7 +811,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
         for row_index, item in enumerate(document["items"]):
             candidates = matcher.match(item.get("code")) if item.get("code") else matcher.match(item.get("name"), by_name=True, history=history)
             if len(candidates) > 1:
-                left, right = st.columns([4, 1])
+                left, right = st.columns([4, 1], vertical_alignment="bottom")
                 choice = left.selectbox(f"第 {row_index + 1} 項相符貨品", candidates, format_func=lambda c: f"{c} · {all_choices[c]['name']}", key=prefix + f"match_{row_index}")
                 if right.button("採用", key=prefix + f"apply_{row_index}"):
                     before = deepcopy(document["items"])
@@ -966,8 +974,11 @@ def render_shipment_management(config, *, start_new_on_entry=False):
         try:
             if any(len(matcher.match(item.get("code"))) > 1 for item in document["items"]):
                 raise ShipmentError("有多筆相符貨品，請先選擇並採用完整編號。")
+            cleared_contacts = document.get("_cleared_contacts", {})
+            missing_contacts = tuple(field for field in CONTACT_FIELDS
+                                     if not cleared_contacts.get(field) and not str(document.get(field) or "").strip())
             with shipment_timing("shipment_save", item_count=len(document["items"])):
-                saved = save_shipment(config, document, sync_products=sync_products)
+                saved = save_shipment(config, document, sync_products=sync_products, fill_missing_contacts=missing_contacts)
         except ShipmentError as error:
             save_error = str(error)
             action_feedback.error(save_error)
