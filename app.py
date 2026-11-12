@@ -22,6 +22,10 @@ from utils import database as database_utils
 from utils.customer_display import CustomerDisplay
 from utils.read_cache import invalidate_read_cache
 from utils.navigation_data import warm_navigation_reads
+from utils.inventory_navigation import (
+    CUSTOMER_STOCK_INPUTS, INVENTORY_VIEW_KEY, INVENTORY_VIEWS, MOVEMENT_VIEWS, ORDER_VIEWS,
+    RECIPE_VIEWS, remember_audit_upload, retain_inventory_widgets, selected_inventory_view,
+)
 from utils.list_ui import render_selection_table
 from utils.number_format import format_optional_decimals
 from utils.big_label_repository import (
@@ -1162,7 +1166,6 @@ def apply_tab_persistence_fix():
           const PAGE_MANAGED_TAB_LABELS = new Set([
             "🛸 生產單建立|📜 生產單記錄表|👀 生產單預覽/修改/取消",
             "👀 預覽|🛠️ 修改 / 取消",
-            "📦 初始|📊 查詢|📋 盤點|🏆 排行|🧮 用量|🧴 色母|👤 客戶",
             "👤 員工薪資設定|📅 每月薪資|📚 薪資歷史|⚙️ 薪資規則",
           ]);
 
@@ -3766,6 +3769,8 @@ menu = st.session_state.menu  # 先從 session_state 取得目前選擇
 page_render_started_at = time.perf_counter()
 log_performance("menu_selected", page_render_started_at, menu=menu)
 
+if menu == "庫存區" or INVENTORY_VIEW_KEY in st.session_state:
+    retain_inventory_widgets(st.session_state, selected_inventory_view(st.session_state) if menu == "庫存區" else None)
 warm_navigation_reads(DATABASE_CONFIG, st.session_state, menu, customer_display)
 
 if menu != "出貨單":
@@ -10711,78 +10716,73 @@ elif menu == "庫存區":
     from datetime import datetime, date
     import streamlit as st
 
-    # ================================================================
-    # 配方沿用 session_state，生產單在下方刷新一次。
-    # ================================================================
+    inventory_view = st.radio(
+        "庫存功能", tuple(INVENTORY_VIEWS), format_func=INVENTORY_VIEWS.__getitem__,
+        horizontal=True, key=INVENTORY_VIEW_KEY, label_visibility="collapsed",
+    )
+    st.caption("分頁對照：📦 初始庫存設定｜📊 庫存查詢｜📋 庫存盤點分析｜🏆 色粉用量排行榜｜🧮 色粉用量查詢｜🧴 色母庫存查詢｜👤 個別客戶庫存")
+
     df_recipe = st.session_state.get("df_recipe", pd.DataFrame())
 
     # 「排行」與「用量」也必須能在直接進入庫存區時使用，而不是等使用者先造訪
     # 配方管理或生產單管理後才取得資料。
-    if "df_recipe" not in st.session_state:
+    if inventory_view in RECIPE_VIEWS and "df_recipe" not in st.session_state:
         try:
             df_recipe = pd.DataFrame(list_recipes(DATABASE_CONFIG)).fillna("")
             st.session_state.df_recipe = df_recipe
         except Exception as exc:
             st.error(f"❌ 無法從 Turso 載入配方資料：{exc}")
 
-    # Refresh lifecycle state even when this session already holds an order frame.
-    from utils.production_inventory import prepare_inventory_orders
-    try:
-        inventory_orders = pd.DataFrame(
-            list_production_orders(DATABASE_CONFIG, include_cancelled=True)
-        ).fillna("")
-        st.session_state.df_order = inventory_orders
-        df_order = prepare_inventory_orders(st.session_state, inventory_orders)
-    except Exception:
-        st.error("無法更新生產單狀態，暫停庫存計算；請稍後重新查詢。")
-        st.stop()
+    if inventory_view in ORDER_VIEWS:
+        # Refresh lifecycle state even when this session already holds an order frame.
+        from utils.production_inventory import prepare_inventory_orders
+        try:
+            inventory_orders = pd.DataFrame(
+                list_production_orders(DATABASE_CONFIG, include_cancelled=True)
+            ).fillna("")
+            st.session_state.df_order = inventory_orders
+            df_order = prepare_inventory_orders(st.session_state, inventory_orders)
+        except Exception:
+            st.error("無法更新生產單狀態，暫停庫存計算；請稍後重新查詢。")
+            st.stop()
 
-    # 庫存區可以從側邊欄直接進入，不能假設使用者曾先開啟「配方管理」。
-    # 色粉／色母主檔的正式來源已是 Turso，因此在此頁自行載入並更新 session
-    # 快取，避免仍依賴「配方管理」頁面才會建立的 df_color。
-    try:
-        color_powder_records = list_color_powders(DATABASE_CONFIG)
-        df_color = pd.DataFrame([
-            {
-                "色粉編號": row.get("colorpowder_id", ""),
-                "國際色號": row.get("international_code", ""),
-                "名稱": row.get("name", ""),
-                "色粉類別": row.get("category", ""),
-                "包裝": row.get("package", ""),
-                "備註": row.get("notes", ""),
-            }
-            for row in color_powder_records
-        ], columns=["色粉編號", "國際色號", "名稱", "色粉類別", "包裝", "備註"]).fillna("")
-        st.session_state.df_color = df_color.astype(str)
-    except Exception as exc:
-        st.error(f"❌ 無法從 Turso 載入色粉管理資料：{exc}")
-        # 保留已成功載入過的快取，讓短暫連線異常不會清空整個庫存頁。
-        if "df_color" not in st.session_state:
-            st.session_state.df_color = pd.DataFrame(
-                columns=["色粉編號", "國際色號", "名稱", "色粉類別", "包裝", "備註"]
+    if inventory_view == "master":
+        # 庫存區可以從側邊欄直接進入，不能假設使用者曾先開啟「配方管理」。
+        # 色粉／色母主檔的正式來源已是 Turso，因此在此頁自行載入並更新 session
+        # 快取，避免仍依賴「配方管理」頁面才會建立的 df_color。
+        try:
+            color_powder_records = list_color_powders(DATABASE_CONFIG)
+            df_color = pd.DataFrame([
+                {
+                    "色粉編號": row.get("colorpowder_id", ""),
+                    "國際色號": row.get("international_code", ""),
+                    "名稱": row.get("name", ""),
+                    "色粉類別": row.get("category", ""),
+                    "包裝": row.get("package", ""),
+                    "備註": row.get("notes", ""),
+                }
+                for row in color_powder_records
+            ], columns=["色粉編號", "國際色號", "名稱", "色粉類別", "包裝", "備註"]).fillna("")
+            st.session_state.df_color = df_color.astype(str)
+        except Exception as exc:
+            st.error(f"❌ 無法從 Turso 載入色粉管理資料：{exc}")
+            # 保留已成功載入過的快取，讓短暫連線異常不會清空整個庫存頁。
+            if "df_color" not in st.session_state:
+                st.session_state.df_color = pd.DataFrame(
+                    columns=["色粉編號", "國際色號", "名稱", "色粉類別", "包裝", "備註"]
+                )
+
+    if inventory_view in MOVEMENT_VIEWS:
+        st.session_state.pop("stock_need_reload", None)
+        try:
+            records = list_inventory_movements(DATABASE_CONFIG)
+            df_stock = pd.DataFrame(records) if records else pd.DataFrame(
+                columns=["類型", "色粉編號", "日期", "數量", "單位", "備註"]
             )
+        except Exception:
+            df_stock = pd.DataFrame(columns=["類型", "色粉編號", "日期", "數量", "單位", "備註"])
 
-    # ================================================================
-    # ✅ 優化 2：ws_stock 只取一次，4 個 Tab 共用同一個物件
-    # ================================================================
-    # ================================================================
-    # ✅ 優化 3：df_stock 用 TTL 快取，避免每次 rerun 都打 API
-    #    只有「寫入成功後」才強制 force_reload=True
-    # ================================================================
-    if "stock_need_reload" not in st.session_state:
-        st.session_state.stock_need_reload = False
-
-    force_reload_stock = st.session_state.pop("stock_need_reload", False)
-
-    try:
-        records = list_inventory_movements(DATABASE_CONFIG)
-        df_stock = pd.DataFrame(records) if records else pd.DataFrame(
-            columns=["類型", "色粉編號", "日期", "數量", "單位", "備註"]
-        )
-    except Exception:
-        df_stock = pd.DataFrame(columns=["類型", "色粉編號", "日期", "數量", "單位", "備註"])
-
-    st.session_state.df_stock = df_stock
+        st.session_state.df_stock = df_stock
 
     # ================================================================
     # 工具函式（不變，僅集中定義一次）
@@ -11148,73 +11148,6 @@ elif menu == "庫存區":
 
         return stock_summary, None
 
-    # ================================================================
-    # Tab 分頁
-    # ================================================================
-    # 庫存區的表單、查詢與儲存動作都會觸發 Streamlit rerun。
-    # 以 sessionStorage 記住當前分頁，避免每次 rerun 都跳回「初始」，
-    # 並以完整 label 組合定位，不會誤切到其他頁面的 tabs。
-    components.html(
-        """
-        <script>
-        (function () {
-          const storageKey = "inventory_active_tab";
-          const tabTexts = ["📦 初始", "📊 查詢", "📋 盤點", "🏆 排行", "🧮 用量", "🧴 色母", "👤 客戶"];
-
-          function bindInventoryTabs() {
-            const doc = window.parent.document;
-            const tablist = Array.from(doc.querySelectorAll('div[role="tablist"]')).find(candidate => {
-              const labels = Array.from(candidate.querySelectorAll('button[role="tab"]'))
-                .map(tab => tab.textContent.trim());
-              return labels.length === tabTexts.length
-                && tabTexts.every((label, idx) => labels[idx] === label);
-            });
-            if (!tablist) return false;
-
-            const tabs = Array.from(tablist.querySelectorAll('button[role="tab"]'));
-            tabs.forEach((tab, idx) => {
-              if (tab.dataset.inventoryPersistBound === '1') return;
-              tab.dataset.inventoryPersistBound = '1';
-              tab.addEventListener('click', () => {
-                window.parent.sessionStorage.setItem(storageKey, String(idx));
-              });
-            });
-
-            const savedIndex = Number.parseInt(
-              window.parent.sessionStorage.getItem(storageKey), 10
-            );
-            if (Number.isInteger(savedIndex) && tabs[savedIndex]
-                && tabs[savedIndex].getAttribute('aria-selected') !== 'true') {
-              tabs[savedIndex].click();
-            }
-            return true;
-          }
-
-          if (!bindInventoryTabs()) {
-            const observer = new MutationObserver(() => {
-              if (bindInventoryTabs()) observer.disconnect();
-            });
-            observer.observe(window.parent.document.body, { childList: true, subtree: true });
-            window.setTimeout(() => observer.disconnect(), 10000);
-          }
-        })();
-        </script>
-        """,
-        height=0,
-        width=0,
-    )
-
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
-        "📦 初始",
-        "📊 查詢",
-        "📋 盤點",
-        "🏆 排行",
-        "🧮 用量",
-        "🧴 色母",
-        "👤 客戶"
-    ])
-    st.caption("分頁對照：📦 初始庫存設定｜📊 庫存查詢｜📋 庫存盤點分析｜🏆 色粉用量排行榜｜🧮 色粉用量查詢｜🧴 色母庫存查詢｜👤 個別客戶庫存")
-
     # ====================================================================
     # Tab 1：初始庫存設定
     # ====================================================================
@@ -11226,13 +11159,13 @@ elif menu == "庫存區":
     #     3. 用 append_row 新增一列（1 次 API）
     #   總計：最多 2 次 API，原本最多 N+2 次
     # ====================================================================
-    with tab1:
+    if inventory_view == "initial":
 
         init_toast_message = st.session_state.pop("stock_init_toast_message", None)
         if init_toast_message:
             st.toast(init_toast_message, icon="📦")
 
-        with st.form("form_ini_stock"):
+        with st.container(border=True):
             col1, col2, col3 = st.columns(3)
             ini_powder = col1.text_input("色粉編號", key="ini_color")
             ini_qty    = col2.number_input("數量", min_value=0.0, value=0.0, step=1.0, key="ini_qty")
@@ -11242,7 +11175,7 @@ elif menu == "庫存區":
             ini_date = date_col.date_input("設定日期", value=datetime.today(), key="ini_date")
 
             ini_note  = note_col.text_input("備註", key="ini_note")
-            submit_t1 = st.form_submit_button("💾 儲存初始庫存")
+            submit_t1 = st.button("💾 儲存初始庫存")
 
         if submit_t1:
             if not ini_powder.strip():
@@ -11350,7 +11283,7 @@ elif menu == "庫存區":
     #   2. 結果快取到 session_state["stock_query_result"]
     #   3. 相同查詢條件（簽名）不重算，直接顯示快取結果
     # ====================================================================
-    with tab2:
+    if inventory_view == "query":
         def normalize_stock_query_error(err_msg):
             """將各種錯誤型態轉成可安全顯示的文字，避免 Streamlit 再次誤判型態。"""
             if isinstance(err_msg, str):
@@ -11386,7 +11319,7 @@ elif menu == "庫存區":
         )
         st.session_state[use_date_range_key] = use_date_range
 
-        with st.form("form_stock_query"):
+        with st.container(border=True):
             col1, col2 = st.columns(2)
             query_start = col1.date_input("查詢起日", key="stock_start_query", disabled=not use_date_range)
             query_end   = col2.date_input("查詢迄日", key="stock_end_query", disabled=not use_date_range)
@@ -11400,7 +11333,7 @@ elif menu == "庫存區":
                     index=0, key="match_mode"
                 )
 
-            submit_t2 = st.form_submit_button("計算庫存")
+            submit_t2 = st.button("計算庫存")
 
         if not use_date_range:
             st.caption("ℹ️ 未使用日期區間：預設查詢從期初庫存（若無期初則從最早資料）到今天的庫存。")
@@ -11454,7 +11387,7 @@ elif menu == "庫存區":
     # ====================================================================
     # Tab 3：庫存盤點分析
     # ====================================================================
-    with tab3:
+    if inventory_view == "audit":
         saved_audit_message = st.session_state.pop("stock_audit_saved_message", None)
         if saved_audit_message:
             st.success(saved_audit_message)
@@ -11656,6 +11589,7 @@ elif menu == "庫存區":
 
         def read_audit_upload(uploaded_file):
             file_name = uploaded_file.name.lower()
+            uploaded_file.seek(0)
             if file_name.endswith(".csv"):
                 return pd.read_csv(uploaded_file)
             if file_name.endswith((".xlsx", ".xls", ".ods")):
@@ -11714,26 +11648,32 @@ elif menu == "庫存區":
             return "🔴 重盤"
 
         st.markdown('<div class="stock-audit-section-title">① 上傳並產生分析</div>', unsafe_allow_html=True)
-        with st.form("form_stock_audit_analysis"):
+        with st.container(border=True):
             audit_date = st.date_input("盤點日期", value=date.today(), key="stock_audit_date")
             upload_col, normal_col, warning_col = st.columns([3, 1, 1])
             with upload_col, st.container(key="stock_audit_upload_card"):
-                uploaded_audit_file = st.file_uploader(
+                current_upload = st.file_uploader(
                     "上傳盤點表（xlsx / csv / ods）",
                     type=["xlsx", "csv", "ods"],
-                    key="stock_audit_upload",
+                    key="stock_audit_upload", on_change=remember_audit_upload, args=(st.session_state,),
                     help="可直接上傳你原本的人工盤點表；系統會盡量判定儲位、色粉、已分裝、完整包裝、備註欄位。",
                 )
+                uploaded_audit_file = st.session_state.get("stock_audit_uploaded_file")
+                if current_upload is None and uploaded_audit_file is not None:
+                    st.caption(f"已保留盤點表：{uploaded_audit_file.name}")
+                    if st.button("移除已保留的盤點表", key="stock_audit_clear_upload"):
+                        st.session_state.pop("stock_audit_uploaded_file", None)
+                        st.rerun()
             with normal_col:
-                normal_limit_kg = st.number_input("容許差異 kg", min_value=0.0, value=AUDIT_NORMAL_LIMIT_KG, step=0.1)
+                normal_limit_kg = st.number_input("容許差異 kg", min_value=0.0, value=AUDIT_NORMAL_LIMIT_KG, step=0.1, key="stock_audit_normal_limit")
             with warning_col:
-                warning_limit_kg = st.number_input("注意上限 kg", min_value=0.0, value=AUDIT_WARNING_LIMIT_KG, step=0.1)
+                warning_limit_kg = st.number_input("注意上限 kg", min_value=0.0, value=AUDIT_WARNING_LIMIT_KG, step=0.1, key="stock_audit_warning_limit")
             option_col1, option_col2 = st.columns(2)
             with option_col1:
-                show_only_abnormal = st.toggle("只顯示異常", value=True, help="隱藏 🟢 正常，只看需要處理的項目。")
+                show_only_abnormal = st.toggle("只顯示異常", value=True, key="stock_audit_only_abnormal", help="隱藏 🟢 正常，只看需要處理的項目。")
             with option_col2:
-                include_unregistered = st.toggle("包含未建檔色粉", value=False, help="開啟後會像原本一樣列入所有上傳色粉編號。")
-            submit_audit = st.form_submit_button("產生盤點分析", use_container_width=True)
+                include_unregistered = st.toggle("包含未建檔色粉", value=False, key="stock_audit_allow_unregistered", help="開啟後會像原本一樣列入所有上傳色粉編號。")
+            submit_audit = st.button("產生盤點分析", use_container_width=True)
 
         if submit_audit:
             if uploaded_audit_file is None:
@@ -11852,8 +11792,16 @@ elif menu == "庫存區":
             if st.session_state.get("stock_audit_show_only_abnormal", True):
                 display_df = display_df[~display_df["狀態"].astype(str).str.startswith("🟢")]
 
+            editor_revision = st.session_state.get("stock_audit_editor_revision", 0)
+            editor_identity = (editor_revision, selected_location, tuple(display_df.index))
+            editor_base = st.session_state.get("stock_audit_editor_base")
+            if editor_base is None or editor_base[0] != editor_identity:
+                editor_draft = st.session_state.get("stock_audit_editor_draft")
+                base = editor_draft[1] if editor_draft is not None and editor_draft[0] == editor_identity else display_df
+                editor_base = (editor_identity, base)
+                st.session_state["stock_audit_editor_base"] = editor_base
             edited_df = st.data_editor(
-                display_df,
+                editor_base[1],
                 use_container_width=True,
                 hide_index=True,
                 column_config={
@@ -11863,8 +11811,9 @@ elif menu == "庫存區":
                     "計算說明": st.column_config.TextColumn(width="large"),
                     "解析失敗原因": st.column_config.TextColumn(width="large"),
                 },
-                key=f"stock_audit_editor_{st.session_state.get('stock_audit_editor_revision', 0)}",
+                key=f"stock_audit_editor_{editor_revision}",
             )
+            st.session_state["stock_audit_editor_draft"] = (editor_identity, edited_df)
 
             col_save, col_download_view, col_download_full = st.columns(3)
             with col_save:
@@ -11951,7 +11900,7 @@ elif menu == "庫存區":
     # ====================================================================
     # Tab 7：個別客戶庫存（Turso-first）
     # ====================================================================
-    with tab7:
+    if inventory_view == "customer":
         customer_stock_cols = ["_sync_id", "客戶名稱", "配方編號", "顏色", "數量", "單位", "備註", "建立時間", "更新時間"]
         customer_stock_records = list_customer_inventory_records(DATABASE_CONFIG)
         df_customer_stock = pd.DataFrame([{
@@ -12028,24 +11977,30 @@ elif menu == "庫存區":
                     del st.session_state["customer_stock_pending_merge"]
                     st.rerun()
 
-            with st.form("customer_stock_form"):
+            form_identity = (action_mode, target_row["_sync_id"] if target_row is not None else None)
+            if st.session_state.get("cust_stock_form_identity") != form_identity:
+                for key in CUSTOMER_STOCK_INPUTS:
+                    st.session_state.pop(key, None)
+                st.session_state["cust_stock_form_identity"] = form_identity
+
+            with st.container(border=True):
                 customer_col, recipe_col, color_col, qty_col, unit_col = st.columns([1.2, 1.2, 1, 1, 0.7])
                 customer_input = customer_display.selectbox(customer_col,
-                    "客戶名稱", [""] + customer_choices,
+                    "客戶名稱", [""] + customer_choices, key="cust_stock_form_customer",
                     index=([""] + customer_choices).index(str(target_row["客戶名稱"])) if target_row is not None and str(target_row["客戶名稱"]) in customer_choices else 0,
                 )
                 recipe_input = recipe_col.selectbox(
-                    "配方編號", [""] + recipe_choices,
+                    "配方編號", [""] + recipe_choices, key="cust_stock_form_recipe",
                     index=([""] + recipe_choices).index(str(target_row["配方編號"])) if target_row is not None and str(target_row["配方編號"]) in recipe_choices else 0,
                 )
-                color_input = color_col.text_input("顏色", value="" if target_row is None else str(target_row["顏色"]))
+                color_input = color_col.text_input("顏色", key="cust_stock_form_color", value="" if target_row is None else str(target_row["顏色"]))
 
-                qty_input = qty_col.number_input("數量", min_value=0.0, value=0.0 if target_row is None else float(target_row["數量"]), step=1.0)
+                qty_input = qty_col.number_input("數量", key="cust_stock_form_quantity", min_value=0.0, value=0.0 if target_row is None else float(target_row["數量"]), step=1.0)
                 units = ["g", "kg", "桶", "罐", "箱", "包"]
                 current_unit = "g" if target_row is None else str(target_row["單位"])
-                unit_input = unit_col.selectbox("單位", units, index=units.index(current_unit) if current_unit in units else 0)
-                note_input = st.text_input("備註", value="" if target_row is None else str(target_row["備註"]))
-                submitted = st.form_submit_button(f"✅ {action_mode}")
+                unit_input = unit_col.selectbox("單位", units, key="cust_stock_form_unit", index=units.index(current_unit) if current_unit in units else 0)
+                note_input = st.text_input("備註", key="cust_stock_form_note", value="" if target_row is None else str(target_row["備註"]))
+                submitted = st.button(f"✅ {action_mode}")
 
             if submitted:
                 try:
@@ -12085,9 +12040,9 @@ elif menu == "庫存區":
 
         with subtab_query:
             q1, q2, q3 = st.columns(3)
-            selected_recipes = q1.multiselect("配方編號（可多選）", recipe_choices)
-            customer_keyword = q2.text_input("客戶名稱搜尋")
-            color_keyword = q3.text_input("顏色搜尋")
+            selected_recipes = q1.multiselect("配方編號（可多選）", recipe_choices, key="cust_stock_query_recipes")
+            customer_keyword = q2.text_input("客戶名稱搜尋", key="cust_stock_query_customer")
+            color_keyword = q3.text_input("顏色搜尋", key="cust_stock_query_color")
             query_df = df_customer_stock.copy()
             if selected_recipes:
                 query_df = query_df[query_df["配方編號"].isin(selected_recipes)]
@@ -12106,10 +12061,9 @@ elif menu == "庫存區":
     # ====================================================================
     # Tab 6：色母庫存查詢（修復版）
     # ====================================================================
-    with tab6:
+    if inventory_view == "master":
         st.caption("ℹ️ 不選擇日期區間時，會顯示截至今日的累積庫存。")
 
-        # checkbox 放在 form 外才能即時控制 disabled
         use_date_range = st.toggle(
             "使用日期區間",
             value=st.session_state.get("_tab5_use_date_range", False),
@@ -12117,7 +12071,7 @@ elif menu == "庫存區":
         )
         st.session_state["_tab5_use_date_range"] = use_date_range
 
-        with st.form("form_master_stock_query"):
+        with st.container(border=True):
             col1, col2 = st.columns(2)
             master_start = col1.date_input(
                 "查詢起日", key="master_stock_start",
@@ -12138,8 +12092,8 @@ elif menu == "庫存區":
                 )
 
             b1, b2 = st.columns(2)
-            submit_master_query = b1.form_submit_button("計算色母庫存")
-            submit_master_all   = b2.form_submit_button("顯示全部色母")
+            submit_master_query = b1.button("計算色母庫存")
+            submit_master_all   = b2.button("顯示全部色母")
 
         if submit_master_query or submit_master_all:
 
@@ -12432,7 +12386,7 @@ elif menu == "庫存區":
     #   1. 全程使用 session_state 的 df_order / df_recipe，不重讀 Sheet
     #   2. 排行結果快取到 session_state["rank_result"]，相同條件不重算
     # ====================================================================
-    with tab4:
+    if inventory_view == "rank":
 
         col1, col2, suffix_col = st.columns([1, 1, 1.2], vertical_alignment="bottom")
         rank_start = col1.date_input("開始日期（排行榜）", key="rank_start_date")
@@ -12552,9 +12506,9 @@ elif menu == "庫存區":
     #   1. 全程使用 session_state 的 df_order / df_recipe，不重讀 Sheet
     #   2. 結果快取到 session_state["tab4_usage_result"]，相同條件不重算
     # ====================================================================
-    with tab5:
+    if inventory_view == "usage":
 
-        with st.form("form_powder_usage"):
+        with st.container(border=True):
             st.markdown("**🔍 色粉用量查詢**")
 
             cols = st.columns(4)
@@ -12568,10 +12522,10 @@ elif menu == "庫存區":
             start_date = col1.date_input("開始日期", key="usage_start_date")
             end_date   = col2.date_input("結束日期",  key="usage_end_date")
 
-            submit_t4 = st.form_submit_button("查詢用量")
+            submit_t4 = st.button("查詢用量")
 
         if submit_t4:
-            powder_inputs = powder_inputs_raw  # 已在 form 內收集
+            powder_inputs = powder_inputs_raw
 
             if not powder_inputs:
                 st.warning("⚠️ 請至少輸入一個色粉編號")

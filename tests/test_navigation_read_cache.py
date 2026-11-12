@@ -221,14 +221,17 @@ def test_sidebar_warmup_only_loads_selected_workspace_dependencies(remote, monke
         monkeypatch.setattr(navigation_data, name,
                             lambda *args, _name=name, **kwargs: reads.append(_name))
     navigation_data.warm_navigation_reads(config, state, '庫存區', Display())
-    assert sorted(reads) == sorted(['list_color_powders', 'list_inventory_movements',
-                                   'list_customer_inventory_records', 'list_recipes',
-                                   'list_production_orders', 'customer labels'])
+    assert reads == []
     reads.clear()
     navigation_data.warm_navigation_reads(config, state, '庫存區', Display())
     navigation_data.warm_navigation_reads(config, state, '外部連結', Display())
     assert reads == []
     state['df_recipe'] = object()
     state['df_order'] = object()
+    state['inventory_view'] = 'query'
     navigation_data.warm_navigation_reads(config, state, '庫存區', Display())
-    assert 'list_recipes' not in reads and 'list_production_orders' not in reads
+    assert sorted(reads) == ['list_inventory_movements', 'list_production_orders']
+    reads.clear()
+    state['inventory_view'] = 'customer'
+    navigation_data.warm_navigation_reads(config, state, '庫存區', Display())
+    assert sorted(reads) == ['customer labels', 'list_customer_inventory_records']

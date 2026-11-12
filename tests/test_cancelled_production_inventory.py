@@ -86,7 +86,7 @@ def test_inventory_entry_refreshes_orders_once_and_uses_the_latest_lifecycle():
 
     source = (Path(__file__).parents[1] / "app.py").read_text(encoding="utf-8")
     inventory = source.split('elif menu == "庫存區":', 1)[1]
-    order_load = inventory[inventory.index("    df_recipe ="):inventory.index("    # 庫存區可以從側邊欄")]
+    order_load = inventory[inventory.index("    df_recipe ="):inventory.index('    if inventory_view == "master":')]
     entry = compile("if True:\n" + order_load, "inventory-entry", "exec")
     state = InventoryState(df_recipe=pd.DataFrame())
     calls = []
@@ -103,6 +103,9 @@ def test_inventory_entry_refreshes_orders_once_and_uses_the_latest_lifecycle():
         "pd": pd,
         "list_production_orders": read_orders,
         "DATABASE_CONFIG": config,
+        "inventory_view": "query",
+        "ORDER_VIEWS": {"query"},
+        "RECIPE_VIEWS": {"query"},
     }
     exec(entry, namespace)
     assert calls == [config]

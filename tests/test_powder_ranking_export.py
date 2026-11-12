@@ -13,8 +13,8 @@ def test_ranking_csv_uses_kg_and_tracks_suffix_filter_without_recalculation(monk
     tree = ast.parse(source)
     rank_tab = next(
         node for node in ast.walk(tree)
-        if isinstance(node, ast.With)
-        and any(ast.unparse(item.context_expr) == "tab4" for item in node.items)
+        if isinstance(node, ast.If)
+        and ast.unparse(node.test) == "inventory_view == 'rank'"
         and any(isinstance(child, ast.Constant) and child.value == "btn_powder_rank"
                 for child in ast.walk(node))
     )
