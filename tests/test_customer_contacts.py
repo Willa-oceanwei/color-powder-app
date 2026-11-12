@@ -1,7 +1,6 @@
 import ast
 import json
 from pathlib import Path
-from textwrap import indent
 
 import pytest
 from streamlit.testing.v1 import AppTest
@@ -68,7 +67,10 @@ def customer_app(config):
     branch = next(n for n in ast.walk(tree) if isinstance(n, ast.If) and isinstance(n.test, ast.Compare)
                   and isinstance(n.test.left, ast.Name) and n.test.left.id == "menu"
                   and isinstance(n.test.comparators[0], ast.Constant) and n.test.comparators[0].value == "客戶名單")
-    body = ast.unparse(ast.Module(body=branch.body, type_ignores=[]))
+    body = ast.unparse(ast.Module(body=branch.body, type_ignores=[])).replace(
+        "from utils.customer_picker import render_customer_picker",
+        "render_customer_picker = app_test_picker",
+    )
     script = f'''import sys
 sys.path.insert(0,{str(root)!r})
 from pathlib import Path
@@ -76,7 +78,6 @@ import pandas as pd
 import streamlit as st
 from utils.customer_repository import *
 from utils.database import DatabaseConfig
-from unittest.mock import patch
 DATABASE_CONFIG=DatabaseConfig(backend="sqlite",path=Path({str(config.path)!r}))
 
 def app_test_picker(matches, names, *, key):
@@ -85,8 +86,7 @@ def app_test_picker(matches, names, *, key):
     return st.selectbox("搜尋結果", matches, index=None, key=key,
                         disabled=not matches, format_func=names.__getitem__)
 
-with patch("utils.customer_picker.render_customer_picker", app_test_picker):
-''' + indent(body, "    ")
+''' + body
     return AppTest.from_string(script).run(timeout=30)
 
 
