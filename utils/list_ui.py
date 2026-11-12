@@ -11,7 +11,8 @@ def selection_key(key, row_ids):
     return f"{key}_{fingerprint}"
 
 
-def render_selection_table(frame, records, *, key, id_field, height=None, disabled=False, auto_single=True):
+def render_selection_table(frame, records, *, key, id_field, height=None, disabled=False, auto_single=True,
+                           retain_selection=False):
     """Return the original selected record; never infer identity from a display index."""
     if len(frame) != len(records):
         raise ValueError("Display rows and source records must have matching order and length")
@@ -21,11 +22,27 @@ def render_selection_table(frame, records, *, key, id_field, height=None, disabl
     if disabled:
         st.dataframe(frame, **options)
         return None
-    result = st.dataframe(frame, on_select='rerun', selection_mode='single-row',
-                          key=selection_key(key, [row[id_field] for row in records]), **options)
+    row_ids = [row[id_field] for row in records]
+    widget_key = selection_key(key, row_ids)
+    retained_key = f"{key}_retained_selection"
+
+    def update_retained_selection():
+        rows = st.session_state[widget_key]["selection"]["rows"]
+        if rows and 0 <= rows[0] < len(row_ids):
+            st.session_state[retained_key] = row_ids[rows[0]]
+        else:
+            st.session_state.pop(retained_key, None)
+
+    result = st.dataframe(frame, on_select=update_retained_selection if retain_selection else 'rerun',
+                          selection_mode='single-row', key=widget_key, **options)
     selected = result.selection.rows
     if selected and 0 <= selected[0] < len(records):
         return records[selected[0]]
+    if retain_selection and retained_key in st.session_state:
+        selected_id = st.session_state[retained_key]
+        for record in records:
+            if record[id_field] == selected_id:
+                return record
     if auto_single and len(records) == 1:
         return records[0]
     return None

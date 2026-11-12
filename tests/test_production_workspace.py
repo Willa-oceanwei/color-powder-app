@@ -52,9 +52,9 @@ def production_config(tmp_path):
     return config
 
 
-def workspace_app(config):
+def workspace_app(config, view="create"):
     root = str(Path.cwd())
-    return AppTest.from_string(f'''import sys, time, json, re, logging, ast, concurrent.futures
+    app = AppTest.from_string(f'''import sys, time, json, re, logging, ast, concurrent.futures
 sys.path.insert(0, {root!r})
 from pathlib import Path
 from datetime import datetime, timedelta
@@ -73,6 +73,7 @@ from utils.customer_display import CustomerDisplay
 from utils.paper_preview import build_paper_preview, paper_preview_height
 from utils.list_ui import render_selection_table as original_selection, render_compact_pagination
 from utils.read_cache import invalidate_read_cache
+from utils.production_navigation import PRODUCTION_VIEW_KEY, PRODUCTION_VIEWS, retain_production_widgets
 DATABASE_CONFIG = DatabaseConfig(backend='sqlite', path=Path({str(config.path)!r}))
 customer_display = CustomerDisplay(DATABASE_CONFIG)
 log_performance = lambda *a, **kw: None
@@ -93,13 +94,15 @@ st.caption(f"Main runs: {{st.session_state.qa_main_runs}}")
 st.session_state.setdefault('last_search_tab3_done', True)
 render_production_order_workspace()
 ''')
+    app.session_state['production_order_view'] = view
+    return app
 
 
 def test_saving_edit_refreshes_records_without_restarting_main_app(production_config, monkeypatch):
     queued = queue_updates(monkeypatch, [('edit_order_btn_tab3', True),
                                          ('edit_color_tab3', 'Changed'),
                                          ('save_edit_button_tab3', True)])
-    app = workspace_app(production_config).run(timeout=30)
+    app = workspace_app(production_config, "manage").run(timeout=30)
     assert not app.exception
     assert len(queued) == 3 and app.session_state['qa_main_runs'] == 1
     assert list_production_orders(production_config)[0]['顏色'] == 'Changed'
@@ -108,7 +111,7 @@ def test_saving_edit_refreshes_records_without_restarting_main_app(production_co
     assert 'qa_outsourcing_reads' not in app.session_state
     assert any('Changed' in str(table.value) for table in app.dataframe)
     # Model a dataframe reset after the saved row's display data changes.
-    restored = workspace_app(production_config)
+    restored = workspace_app(production_config, "manage")
     restored.session_state['qa_drop_manage_selection'] = True
     restored.session_state['production_manage_saved_order_id'] = 'P001'
     restored.run(timeout=30)
@@ -119,7 +122,7 @@ def test_saving_edit_refreshes_records_without_restarting_main_app(production_co
 
 @pytest.mark.parametrize('label_kind', ['大標籤', '小標籤'])
 def test_saved_label_panel_survives_lost_table_selection(production_config, label_kind):
-    app = workspace_app(production_config).run(timeout=30)
+    app = workspace_app(production_config, "history").run(timeout=30)
     assert not app.exception
     app.button(key='open_labels_tab2_P001').click().run()
     assert not app.exception
@@ -196,6 +199,40 @@ def test_short_exact_recipe_search_prefers_full_id_and_keeps_draft_inputs(produc
     assert list_production_orders(production_config) == before
 
 
+def test_switching_production_views_keeps_draft_and_renders_only_the_active_panel(production_config):
+    before = list_production_orders(production_config)
+    app = workspace_app(production_config).run(timeout=30)
+    assert not app.dataframe
+    app.text_input(key="search_text_tab1").set_value("R002").run()
+    if any(button.key == "recipe_code_review_keep" for button in app.button):
+        app.button(key="recipe_code_review_keep").click().run()
+    app.text_input(key="form_weight1_tab1").set_value("25")
+    app.text_area(key="form_remark_tab1").set_value("Draft note").run()
+
+    app.radio(key="production_order_view").set_value("history").run()
+    assert not app.exception and len(app.dataframe) == 1
+    assert not any(widget.key == "search_text_tab1" for widget in app.text_input)
+    assert not any(widget.key == "search_production_manage" for widget in app.button)
+    app.text_input(key="search_order_input_tab2").set_value("P001").run()
+
+    app.radio(key="production_order_view").set_value("create").run()
+    assert not app.exception
+    assert app.text_input(key="form_weight1_tab1").value == "25"
+    assert app.text_area(key="form_remark_tab1").value == "Draft note"
+    assert not app.dataframe
+    app.radio(key="production_order_view").set_value("history").run()
+    assert app.text_input(key="search_order_input_tab2").value == "P001"
+    assert list_production_orders(production_config) == before
+
+    app.radio(key="production_order_view").set_value("create").run()
+    app.text_input(key="form_count1_tab1").set_value("2").run()
+    app.button(key="save_production_create").click().run()
+    assert not app.exception
+    created = next(row for row in list_production_orders(production_config) if row["配方編號"] == "R002")
+    assert created["包裝重量1"] == "25" and created["包裝份數1"] == "2"
+    assert created["備註"] == "Draft note"
+
+
 def test_manual_recipe_selection_opens_creation_without_another_add_click(production_config, monkeypatch):
     from utils import inventory_repository
 
@@ -245,7 +282,7 @@ def test_history_label_editor_and_workspace_have_one_render_owner(production_con
         runner.on_event.connect(collect_fragments, weak=False)
 
     monkeypatch.setattr(LocalScriptRunner, '__init__', initialize_runner)
-    app = workspace_app(production_config)
+    app = workspace_app(production_config, "history")
     app.session_state['history_labels_open_P001'] = True
     app.run(timeout=30)
     assert not app.exception
@@ -256,7 +293,7 @@ def test_history_label_editor_and_workspace_have_one_render_owner(production_con
 
 @pytest.mark.parametrize("label_kind", ["大標籤", "小標籤"])
 def test_first_label_save_survives_selection_reset(production_config, label_kind):
-    app = workspace_app(production_config).run(timeout=30)
+    app = workspace_app(production_config, "history").run(timeout=30)
     app.button(key="open_labels_tab2_P001").click().run()
     app.session_state["qa_drop_selection"] = True
     app.run()
@@ -278,7 +315,7 @@ def test_first_label_save_survives_selection_reset(production_config, label_kind
 
 
 def test_order_preview_can_open_label_editor(production_config):
-    app = workspace_app(production_config).run(timeout=30)
+    app = workspace_app(production_config, "manage").run(timeout=30)
     app.toggle(key="show_labels_tab3_P001").set_value(True).run()
     assert not app.exception
     assert app.radio(key="tab3_label_kind_P001").value == "大標籤"
@@ -287,7 +324,7 @@ def test_order_preview_can_open_label_editor(production_config):
 
 def test_cancelling_order_invalidates_inventory_query_and_usage(production_config):
     from utils.production_order_repository import list_production_orders
-    app = workspace_app(production_config).run(timeout=30)
+    app = workspace_app(production_config, "manage").run(timeout=30)
     for key in ("stock_query_result", "stock_audit_result", "master_stock_query_result", "rank_result", "tab4_usage_result"):
         app.session_state[key] = ["stale cancelled-order usage"]
     app.button(key="toggle_order_cancel_btn_tab3").click().run()
