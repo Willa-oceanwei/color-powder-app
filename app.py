@@ -898,13 +898,15 @@ def apply_modern_style():
    ⭐ LEVEL 1 TAB (SAP MODULE STYLE)
 =================================================== */
 
-div.block-container .stTabs [data-baseweb="tab-list"]{
+div.block-container .stTabs [data-baseweb="tab-list"],
+:is(.st-key-production_order_view, .st-key-inventory_view) [role="radiogroup"]{
     gap:6px;
     border-bottom:1px solid rgba(255,255,255,0.08);
 }
 
 /* tab */
-div.block-container .stTabs [data-baseweb="tab-list"] > button{
+div.block-container .stTabs [data-baseweb="tab-list"] > button,
+:is(.st-key-production_order_view, .st-key-inventory_view) [role="radiogroup"] > label{
 
     background:#0b2f4a !important;
     color:#cfd8e3 !important;
@@ -922,13 +924,15 @@ div.block-container .stTabs [data-baseweb="tab-list"] > button{
 }
 
 /* hover */
-div.block-container .stTabs [data-baseweb="tab-list"] > button:hover{
+div.block-container .stTabs [data-baseweb="tab-list"] > button:hover,
+:is(.st-key-production_order_view, .st-key-inventory_view) [role="radiogroup"] > label:hover{
     background:#124466 !important;
     color:#ffffff !important;
 }
 
 /* active */
-div.block-container .stTabs [data-baseweb="tab-list"] > button[aria-selected="true"]{
+div.block-container .stTabs [data-baseweb="tab-list"] > button[aria-selected="true"],
+:is(.st-key-production_order_view, .st-key-inventory_view) [role="radiogroup"] > label:has(> input:checked){
 
     background:#c6582f !important;
     color:#ffffff !important;
@@ -939,11 +943,42 @@ div.block-container .stTabs [data-baseweb="tab-list"] > button[aria-selected="tr
 
 }
 
+/* The server uses radio selection to mount only the active panel. */
+:is(.st-key-production_order_view, .st-key-inventory_view) [role="radiogroup"]{
+    flex-wrap:nowrap;
+    overflow-x:auto;
+    padding-top:2px;
+}
+
+:is(.st-key-production_order_view, .st-key-inventory_view) [role="radiogroup"] > label{
+    flex:0 0 auto;
+    min-height:32px;
+    margin:0;
+    white-space:nowrap;
+    cursor:pointer;
+}
+
+:is(.st-key-production_order_view, .st-key-inventory_view) label[data-baseweb="radio"] > div:first-child{
+    display:none;
+}
+
+:is(.st-key-production_order_view, .st-key-inventory_view) label[data-baseweb="radio"] p{
+    margin:0;
+    color:inherit;
+    font:inherit;
+}
+
+:is(.st-key-production_order_view, .st-key-inventory_view) label[data-baseweb="radio"]:has(> input:focus-visible){
+    outline:2px solid #ffb199;
+    outline-offset:-3px;
+}
+
 /* ===================================================
    🟠 LEVEL 2 TAB (NOTION STYLE)
 =================================================== */
 
-div.block-container div[data-testid="stTabs"] div[data-testid="stTabs"] [data-baseweb="tab-list"]{
+div.block-container div[data-testid="stTabs"] div[data-testid="stTabs"] [data-baseweb="tab-list"],
+div.block-container :is(.st-key-production_order_details, .st-key-inventory_customer_details) [data-baseweb="tab-list"]{
 
     gap:14px;
     border-bottom:1px solid rgba(255,255,255,0.06);
@@ -952,7 +987,8 @@ div.block-container div[data-testid="stTabs"] div[data-testid="stTabs"] [data-ba
 }
 
 /* tab */
-div.block-container div[data-testid="stTabs"] div[data-testid="stTabs"] [data-baseweb="tab-list"] > button{
+div.block-container div[data-testid="stTabs"] div[data-testid="stTabs"] [data-baseweb="tab-list"] > button,
+div.block-container :is(.st-key-production_order_details, .st-key-inventory_customer_details) [data-baseweb="tab-list"] > button{
 
     background:transparent !important;
     color:#9fb6cc !important;
@@ -968,12 +1004,14 @@ div.block-container div[data-testid="stTabs"] div[data-testid="stTabs"] [data-ba
 }
 
 /* hover */
-div.block-container div[data-testid="stTabs"] div[data-testid="stTabs"] [data-baseweb="tab-list"] > button:hover{
+div.block-container div[data-testid="stTabs"] div[data-testid="stTabs"] [data-baseweb="tab-list"] > button:hover,
+div.block-container :is(.st-key-production_order_details, .st-key-inventory_customer_details) [data-baseweb="tab-list"] > button:hover{
     color:#ff8a57 !important;
 }
 
 /* active */
-div.block-container div[data-testid="stTabs"] div[data-testid="stTabs"] [data-baseweb="tab-list"] > button[aria-selected="true"]{
+div.block-container div[data-testid="stTabs"] div[data-testid="stTabs"] [data-baseweb="tab-list"] > button[aria-selected="true"],
+div.block-container :is(.st-key-production_order_details, .st-key-inventory_customer_details) [data-baseweb="tab-list"] > button[aria-selected="true"]{
 
     color:#ff8a57 !important;
 
@@ -7628,7 +7666,8 @@ def render_production_order_workspace():
                 st.session_state, current_order_no, order_dict
             )
     
-            preview_tab, manage_tab = st.tabs(["👀 預覽", "🛠️ 修改 / 取消"])
+            with st.container(key="production_order_details"):
+                preview_tab, manage_tab = st.tabs(["👀 預覽", "🛠️ 修改 / 取消"])
     
             with preview_tab:
                 head_col, opt_col, download_col = st.columns([5, 2, 2])
@@ -11909,7 +11948,8 @@ elif menu == "庫存區":
                                   | {str(v).strip() for v in df_customer_stock.get("客戶名稱", pd.Series(dtype=str)) if str(v).strip()})
         recipe_choices = sorted({str(v).strip() for v in st.session_state.get("df_recipe", pd.DataFrame()).get("配方編號", pd.Series(dtype=str)) if str(v).strip()}
                                 | {str(v).strip() for v in df_customer_stock.get("配方編號", pd.Series(dtype=str)) if str(v).strip()})
-        subtab_form, subtab_query = st.tabs(["庫存維護", "庫存查詢"])
+        with st.container(key="inventory_customer_details"):
+            subtab_form, subtab_query = st.tabs(["庫存維護", "庫存查詢"])
 
         with subtab_form:
             action_mode = st.radio("作業模式", ["新增", "修改", "封存"], horizontal=True, key="cust_stock_action_mode")
