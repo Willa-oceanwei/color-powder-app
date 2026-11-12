@@ -968,6 +968,10 @@ div.block-container .stTabs [data-baseweb="tab-list"] > button[aria-selected="tr
     font:inherit;
 }
 
+:is(.st-key-production_order_view, .st-key-inventory_view) label[data-baseweb="radio"]:has(> input:checked) p{
+    color:#ffffff !important;
+}
+
 :is(.st-key-production_order_view, .st-key-inventory_view) label[data-baseweb="radio"]:has(> input:focus-visible){
     outline:2px solid #ffb199;
     outline-offset:-3px;
