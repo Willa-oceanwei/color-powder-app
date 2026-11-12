@@ -900,6 +900,10 @@ def apply_modern_style():
 
 div.block-container .stTabs [data-baseweb="tab-list"],
 :is(.st-key-production_order_view, .st-key-inventory_view) [role="radiogroup"]{
+    --selected-tab-background: linear-gradient(to top, rgba(198,88,47,0.22), transparent 70%) #0b0b0b;
+    --selected-tab-glow: 0 2px 6px rgba(198,88,47,0.55),
+                         0 0 14px rgba(198,88,47,0.45),
+                         0 0 24px rgba(198,88,47,0.35);
     gap:6px;
     border-bottom:1px solid rgba(255,255,255,0.08);
 }
@@ -934,12 +938,13 @@ div.block-container .stTabs [data-baseweb="tab-list"] > button:hover,
 div.block-container .stTabs [data-baseweb="tab-list"] > button[aria-selected="true"],
 :is(.st-key-production_order_view, .st-key-inventory_view) [role="radiogroup"] > label:has(> input:checked){
 
-    background:#c6582f !important;
+    background:var(--selected-tab-background) !important;
     color:#ffffff !important;
 
-    border-bottom:2px solid #0a0a0a !important;
+    border-bottom:2px solid #e58a55 !important;
 
-    box-shadow:0 -2px 10px rgba(198,88,47,0.25);
+    position:relative;
+    box-shadow:var(--selected-tab-glow) !important;
 
 }
 
@@ -947,7 +952,7 @@ div.block-container .stTabs [data-baseweb="tab-list"] > button[aria-selected="tr
 :is(.st-key-production_order_view, .st-key-inventory_view) [role="radiogroup"]{
     flex-wrap:nowrap;
     overflow-x:auto;
-    padding-top:2px;
+    padding-top:6px;
 }
 
 :is(.st-key-production_order_view, .st-key-inventory_view) [role="radiogroup"] > label{
@@ -1013,15 +1018,10 @@ div.block-container :is(.st-key-production_order_details, .st-key-inventory_cust
 div.block-container div[data-testid="stTabs"] div[data-testid="stTabs"] [data-baseweb="tab-list"] > button[aria-selected="true"],
 div.block-container :is(.st-key-production_order_details, .st-key-inventory_customer_details) [data-baseweb="tab-list"] > button[aria-selected="true"]{
 
+    background:var(--selected-tab-background) !important;
     color:#ff8a57 !important;
 
     border-bottom:2px solid #ff8a57 !important;
-
-    box-shadow:
-        0 2px 6px rgba(198,88,47,0.55),
-        0 0 14px rgba(198,88,47,0.45),
-        0 0 24px rgba(198,88,47,0.35);
-
 }
 
 /* ===================================================
@@ -3988,11 +3988,6 @@ elif menu == "客戶名單":
         .block-container:has(.customer-page-marker) [data-baseweb="input"]:focus-within,
         .block-container:has(.customer-page-marker) [data-baseweb="select"]:focus-within > div {
             border-color: #65b5e2 !important;
-        }
-        .block-container:has(.customer-page-marker) .stTabs [data-baseweb="tab-list"] > button[aria-selected="true"] {
-            background: #c6582f !important;
-            border-bottom-color: #e58a55 !important;
-            box-shadow: none !important;
         }
         .block-container:has(.customer-page-marker) .stTabs [data-baseweb="tab-highlight"] {
             background-color: #e58a55 !important;
