@@ -6,7 +6,7 @@ import re
 
 from .customer_repository import _mappings
 from .database import connect_from_config
-from .shipment_repository import ShipmentError
+from .shipment_repository import ShipmentError, is_blank_price
 
 
 def product_transactions(config, code, start=None, end=None, *, include_prior=False, include_related=False):
@@ -66,6 +66,8 @@ def product_price_changes(rows):
         row["shipment_id"], row["line_number"],
     ))
     for row in chronological:
+        if is_blank_price(row["price"]):
+            continue
         group = (str(row["code"]).strip().upper(), row["customer_id"],
                  str(row["unit"] or "").strip(), row["tax_mode"])
         price = Decimal(str(row["price"]))

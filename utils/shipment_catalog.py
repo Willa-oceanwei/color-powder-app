@@ -8,7 +8,7 @@ from .database import connect_from_config
 from .product_repository import (
     ProductError, _document, blank_product, product_from_recipe, save_product,
 )
-from .shipment_repository import ShipmentError, recent_shipment_price, shipment_price_history
+from .shipment_repository import ShipmentError, is_blank_price, recent_shipment_price, shipment_price_history
 from .shipment_codes import display_code_options
 
 
@@ -138,7 +138,9 @@ def complete_items(config, document, items, previous, *, choices=None, history=N
             same_price = same_price or Decimal(str(item.get("price"))) == Decimal(str(old.get("price")))
         except InvalidOperation:
             pass
-        if item.get("price", "") == "" or same_price:
+        if (same_price and not is_blank_price(item.get("price"))) or (
+            code_changed and is_blank_price(item.get("price")) and is_blank_price(old.get("price"))
+        ):
             price_document = dict(document, tax_mode="免稅") if item.get("tax_exempt") else document
             item["price"] = item_price(config, price_document, code, item["unit"], match, history=history)
     return result

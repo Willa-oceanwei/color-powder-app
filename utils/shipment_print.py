@@ -50,8 +50,14 @@ def _text(value):
 
 
 def display_price(value):
+    if value is None or value == '':
+        return ''
     text = format(Decimal(str(value)), 'f')
     return text.rstrip('0').rstrip('.') if '.' in text else text
+
+
+def display_amount(value):
+    return '' if value is None or value == '' else f'{int(value):,}'
 
 
 def render_shipment_print(document, *, show_prices=True, orientation="landscape", feed_rotation=0, hole_margin=0, paper_stock="standard", output_mode="print"):
@@ -77,7 +83,7 @@ def render_shipment_print(document, *, show_prices=True, orientation="landscape"
     pages, page_rows, used = [], [], 0
     for item in document['items']:
         cells = [_wrap('' if not show_prices and key in ('price', 'amount') else display_price(item[key]) if key in ('price', 'quantity') else
-                       f"{int(item[key]):,}" if key == 'amount' else printed_code(item) if key == 'code' else item.get(key, ''), width) for key, _, width in fields]
+                       display_amount(item[key]) if key == 'amount' else printed_code(item) if key == 'code' else item.get(key, ''), width) for key, _, width in fields]
         cells[-1] = [purchase_order_text(item.get('order_number', ''))]
         if item.get('notes'):
             cells[1].extend(_wrap(item['notes'], fields[1][2]))

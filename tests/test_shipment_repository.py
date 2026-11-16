@@ -490,3 +490,30 @@ def test_edit_save_only_writes_changed_sections(config, monkeypatch, change, exp
     assert updated["notes"] == edit["notes"]
     assert updated["items"][0]["quantity"] == edit["items"][0]["quantity"]
     assert updated["invoice"]["method"] == edit["invoice"]["method"]
+
+
+def test_blank_price_is_not_a_zero_price_or_a_source_for_later_orders(config):
+    from utils.product_transaction_report import product_price_changes, product_transactions
+    from utils.shipment_repository import printable_shipment, recent_shipment_price, shipment_price_history
+
+    document = blank_shipment()
+    document.update(customer_id='C01', customer_name='範例客戶', shipment_date='2026-10-01')
+    document['items'] = [dict(code='P1', name='Blue', unit='KG', quantity='2', price='0')]
+    save_shipment(config, document)
+
+    document.update(shipment_date='2026-10-02')
+    document['items'][0]['price'] = ''
+    document['items'].append(dict(code='P2', name='White', unit='KG', quantity='2', price='15'))
+    saved = save_shipment(config, document)
+
+    assert saved['items'][0]['price'] == saved['items'][0]['amount'] == ''
+    assert saved['items'][1]['amount'] == '30'
+    assert saved['total_amount'] == '32'
+    assert 'Blue' in printable_shipment(saved)
+    args = dict(shipment_date='2026-10-03', tax_mode='外加')
+    history = shipment_price_history(config, 'C01', args['shipment_date'])
+    assert recent_shipment_price(config, 'C01', 'P1', 'KG', **args)['price'] == '0'
+    assert recent_shipment_price(config, 'C01', 'P1', 'KG', history=history, **args)['price'] == '0'
+    rows = product_transactions(config, 'P1')
+    assert len(rows) == 2
+    assert [row['price'] for row in product_price_changes(rows)] == ['0']

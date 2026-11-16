@@ -12,7 +12,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 from .shipment_catalog import shipment_choices, complete_items, recent_item_defaults, editing_product_matcher
-from .shipment_print import display_price
+from .shipment_print import display_amount, display_price
 from .paper_preview import theme_preview
 from .shipment_page_data import cached_read, clear_reads, preload_edit_reads, shipment_timing, timed_read
 from .shipment_history_ui import render_purchase_history
@@ -29,7 +29,7 @@ from .customer_repository import (
 from .shipment_repository import (
     TAX_MODES, ShipmentError, blank_shipment, calculate, copy_shipment, get_shipment,
     list_shipments, printable_shipment, save_shipment, void_shipment, update_shipment_item_notes, update_shipment_notes,
-    recent_shipment_price, shipment_price_history,
+    is_blank_price, recent_shipment_price, shipment_price_history,
 )
 
 COLUMNS = {"code": "貨品編號", "name": "品名", "quantity": "數量", "unit": "單位",
@@ -138,7 +138,8 @@ def _cached_print(config, document, **options):
 
 
 def _begin(document, *, rerun=True):
-    for key in ("shipment_pending_save", "shipment_pending_export", "shipment_draft_export", "shipment_action_error"):
+    for key in ("shipment_pending_save", "shipment_pending_export", "shipment_draft_export", "shipment_action_error",
+                "shipment_blank_price_confirmation", "shipment_blank_price_toast"):
         st.session_state.pop(key, None)
     saved_view = st.session_state.pop("shipment_saved_view", None)
     st.session_state.shipment_cancel_view = (
@@ -201,7 +202,8 @@ def _cancel(config):
 
 
 def _finish(message="", *, rerun=True, invalidate_reports=False, saved_view=None, clear_cache=True):
-    for key in ("shipment_pending_save", "shipment_pending_export", "shipment_draft_export", "shipment_action_error"):
+    for key in ("shipment_pending_save", "shipment_pending_export", "shipment_draft_export", "shipment_action_error",
+                "shipment_blank_price_confirmation", "shipment_blank_price_toast"):
         st.session_state.pop(key, None)
     st.session_state.pop("shipment_cancel_view", None)
     if clear_cache:
@@ -386,6 +388,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
         st.toast(notice, icon="✅" if "已儲存" in notice or "已取消" in notice else "ℹ️")
     # Fill this slot after validation so feedback stays above the toolbar.
     action_feedback = st.empty()
+    price_confirmation = st.empty()
     action_error = st.session_state.pop("shipment_action_error", "")
     if action_error:
         action_feedback.error(action_error)
@@ -769,7 +772,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                     price = chosen["standard_price"]
                     st.caption(f"標準售價：{display_price(price)} / {unit}")
                 else:
-                    st.caption("無相符單位或課稅方式的單價，加入後請自行填價")
+                    st.caption("無相符單位或課稅方式的單價，可清空後補")
             if add_col.button("加入", key="shipment_add_recipe", disabled=not code or not unit, use_container_width=True):
                 requested_item = dict(code=code, name=defaults.get("name") or chosen["name"], quantity=str(quantity), unit=unit,
                                       price=price, tax_exempt=bool(defaults.get("tax_exempt", False)), order_number="", notes="")
@@ -919,6 +922,8 @@ def render_shipment_management(config, *, start_new_on_entry=False):
             if document.get("id"):
                 st.caption(f"建立：{document['created_at']}　更新：{document['updated_at']}")
                 st.caption("已作廢" if document.get("status") == "void" else "草稿")
+    missing_prices = tuple((index, item["code"]) for index, item in enumerate(document["items"], 1)
+                           if is_blank_price(item.get("price")))
     with summary:
         st.markdown('<div class="shipment-section amounts">金額摘要</div>', unsafe_allow_html=True)
         if editing:
@@ -928,6 +933,8 @@ def render_shipment_management(config, *, start_new_on_entry=False):
             document["tax_rate"] = str(rate)
         else:
             st.text_input("稅率", value=f"{float(document['tax_rate']):g}%", disabled=True)
+        if missing_prices:
+            st.caption("有品項待報價；合計僅包含已填單價的品項。")
         try:
             totals = calculate(document["items"], document["tax_mode"], document["tax_rate"]) if editing else document
             st.markdown('<div class="shipment-totals-card">' + ''.join(f'<div class="shipment-total"><span>{label}</span><span>{int(totals[key]):,}</span></div>'
@@ -936,7 +943,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
             totals = None
             st.error(str(error))
     if editing and totals and document["items"]:
-        lines = '　·　'.join(f'{escape(str(item.get("code", "")))}：{int(amount):,}' for item, amount in zip(document["items"], totals["line_amounts"]))
+        lines = '　·　'.join(f'{escape(str(item.get("code", "")))}：{display_amount(amount) or "待報價"}' for item, amount in zip(document["items"], totals["line_amounts"]))
         st.markdown(f'<div class="shipment-lines">{lines}</div>', unsafe_allow_html=True)
     if editing:
         export_signature = (repr(config), json.dumps(document, sort_keys=True, ensure_ascii=False, default=str),
@@ -967,10 +974,31 @@ def render_shipment_management(config, *, start_new_on_entry=False):
             st.download_button("下載列印版", prepared["html"], file_name=prepared["filename"],
                                mime="text/html", use_container_width=True)
     save_error = ""
-    if save_clicked:
-        # Consume only after all widgets have supplied their current values.
-        # A failed validation requires an explicit retry; no background resaves.
+    if editing:
+        # Consume the toolbar request after reading the whole draft. A second
+        # click is required to write a document with unpriced items.
         st.session_state.pop("shipment_pending_save", None)
+        confirmation_key = "shipment_blank_price_confirmation"
+        if st.session_state.get(confirmation_key) != missing_prices:
+            st.session_state.pop(confirmation_key, None)
+        if save_clicked and missing_prices:
+            st.session_state[confirmation_key] = missing_prices
+            save_clicked = False
+            st.session_state.shipment_blank_price_toast = True
+        if not editor_rebased and st.session_state.pop("shipment_blank_price_toast", False) and st.session_state.get(confirmation_key):
+            st.toast(f"有 {len(missing_prices)} 筆品項未填單價，請確認是否留白儲存。", icon="⚠️")
+        if st.session_state.get(confirmation_key):
+            with price_confirmation.container():
+                st.warning("未填的單價會保留空白，可在出貨單儲存後補價。")
+                confirm, cancel = st.columns(2)
+                save_clicked = confirm.button("確認留白並儲存", key="shipment_confirm_blank_prices", type="primary")
+                if cancel.button("返回填寫單價", key="shipment_cancel_blank_prices",
+                                 on_click=st.session_state.pop, args=(confirmation_key, None)):
+                    save_clicked = False
+                if save_clicked:
+                    st.session_state.pop(confirmation_key, None)
+                    price_confirmation.empty()
+    if save_clicked:
         try:
             if any(len(matcher.match(item.get("code"))) > 1 for item in document["items"]):
                 raise ShipmentError("有多筆相符貨品，請先選擇並採用完整編號。")

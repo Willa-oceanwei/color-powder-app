@@ -472,3 +472,57 @@ render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(confi
     assert not app.exception
     assert app.session_state['shipment_draft']['items'][0]['price'] == 99.0
 
+
+def test_new_shipment_with_blank_price_requires_confirmation_and_can_be_priced_later(tmp_path):
+    from utils.recipe_repository import create_recipe
+
+    config = DatabaseConfig(backend='sqlite', path=tmp_path / 'unpriced.db')
+    initialize_database(config.path)
+    create_customer(config, CustomerInput('C01', '範例客戶'))
+    create_recipe(config, {'配方編號': 'P1', '顏色': '藍', '客戶編號': 'C01'})
+    root = str(Path(__file__).resolve().parents[1])
+    app = AppTest.from_string(f'''import sys
+sys.path.insert(0, {root!r})
+from pathlib import Path
+from utils.database import DatabaseConfig
+from utils.shipment_ui import render_shipment_management
+render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(config.path)!r})))
+''').run(timeout=30)
+    app.button(key='shipment_new').click().run()
+    next(w for w in app.selectbox if w.label == '單號方式').set_value('依日期生成').run()
+    next(w for w in app.selectbox if w.label == '客戶').set_value('C01').run()
+    next(w for w in app.selectbox if w.label == '貨品／配方').set_value('P1').run()
+    app.button(key='shipment_add_recipe').click().run()
+    assert float(app.session_state['shipment_draft']['items'][0]['price']) == 0
+    epoch = app.session_state['shipment_epoch']
+    grid_epoch = app.session_state['shipment_grid_epoch']
+    app.session_state[f'shipment_{epoch}_items_{grid_epoch}'] = {
+        'edited_rows': {0: {'單價': None}}, 'added_rows': [], 'deleted_rows': [],
+    }
+
+    app.button(key='shipment_save').click().run()
+    assert not app.exception
+    assert any('未填單價' in toast.value for toast in app.get('toast'))
+    assert list_shipments(config) == []
+    next(w for w in app.button if w.label == '返回填寫單價').click().run()
+    assert not any(w.label == '確認留白並儲存' for w in app.button)
+    assert list_shipments(config) == []
+
+    app.button(key='shipment_save').click().run()
+    next(w for w in app.button if w.label == '確認留白並儲存').click().run()
+    assert not app.exception
+    assert not app.error, [error.value for error in app.error]
+    saved = get_shipment(config, app.session_state['shipment_selected'])
+    assert saved['items'][0]['price'] == saved['items'][0]['amount'] == ''
+    assert len(list_shipments(config)) == 1
+
+    app.button(key='shipment_edit').click().run()
+    epoch = app.session_state['shipment_epoch']
+    app.session_state[f'shipment_{epoch}_items'] = {
+        'edited_rows': {0: {'單價': 125.0}}, 'added_rows': [], 'deleted_rows': [],
+    }
+    app.button(key='shipment_save').click().run()
+    assert not app.exception
+    priced = get_shipment(config, saved['id'])
+    assert priced['items'][0]['price'] == '125.0'
+    assert priced['items'][0]['amount'] == '125'
