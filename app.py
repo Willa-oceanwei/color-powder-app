@@ -6841,19 +6841,25 @@ def render_production_order_workspace():
 
                 if submitted or continue_to_oem:
             
-                    # ===== 檢查是否至少有一個包裝 =====
-                    all_empty = True
-                    for i in range(1, 5):
-                        weight = st.session_state.get(f"form_weight{i}_tab1", "").strip()
-                        count  = st.session_state.get(f"form_count{i}_tab1", "").strip()
-                        if weight or count:
-                            all_empty = False
-                            break
-            
-                    if all_empty:
-                        st.warning("⚠️ 請至少填寫一個包裝重量或包裝份數，才能儲存生產單！")
+                    packages = [
+                        (
+                            st.session_state.get(f"form_weight{i}_tab1", "").strip(),
+                            st.session_state.get(f"form_count{i}_tab1", "").strip(),
+                        )
+                        for i in range(1, 5)
+                    ]
+                    missing = [
+                        f"第 {i} 組包裝缺少{('份數' if weight else '重量')}"
+                        for i, (weight, count) in enumerate(packages, 1)
+                        if bool(weight) != bool(count)
+                    ]
+                    if missing:
+                        st.toast("、".join(missing) + "，請補齊後再儲存。", icon="⚠️")
                         st.stop()
-            
+                    if not any(weight and count for weight, count in packages):
+                        st.toast("請至少填寫一組包裝重量和份數，才能儲存生產單。", icon="⚠️")
+                        st.stop()
+
                     # ===== 寫回 order（你原本的邏輯）=====
                     order["顏色"] = st.session_state.form_color_tab1
                     order["Pantone 色號"] = st.session_state.form_pantone_tab1
@@ -6867,9 +6873,9 @@ def render_production_order_workspace():
                     order["比例2"] = recipe_row.get("比例2", "")
                     order["比例3"] = recipe_row.get("比例3", "")
             
-                    for i in range(1, 5):
-                        order[f"包裝重量{i}"] = st.session_state.get(f"form_weight{i}_tab1", "").strip()
-                        order[f"包裝份數{i}"] = st.session_state.get(f"form_count{i}_tab1", "").strip()
+                    for i, (weight, count) in enumerate(packages, 1):
+                        order[f"包裝重量{i}"] = weight
+                        order[f"包裝份數{i}"] = count
 
                     # 這次表單填寫的一律視為「本次追加的數量」，先存一份快照，
                     # 之後不管有沒有合併，列印時都可以選擇要顯示追加量還是合併後總量。
