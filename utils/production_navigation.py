@@ -3,8 +3,8 @@
 PRODUCTION_VIEW_KEY = "production_order_view"
 PRODUCTION_VIEWS = {
     "create": "🛸 生產單建立",
-    "history": "📜 生產單記錄表",
     "manage": "👀 生產單預覽/修改/取消",
+    "history": "📜 生產單記錄表",
 }
 
 
