@@ -3369,13 +3369,20 @@ function fitLabelText() {{
     }});
     document.querySelectorAll('.label').forEach(label => {{
         const [number, name] = label.querySelectorAll('.field.left');
+        // Preview and beforeprint can run at different zoom levels.
+        name.style.transform = '';
         range.selectNodeContents(number);
-        const numberWidth = range.getBoundingClientRect().width;
+        const numberText = range.getBoundingClientRect();
         range.selectNodeContents(name);
-        const nameWidth = range.getBoundingClientRect().width;
-        const scale = number.getBoundingClientRect().width / number.offsetWidth || 1;
-        const centerOffset = (numberWidth - nameWidth) / 2;
-        const spaceRemaining = name.getBoundingClientRect().width - nameWidth;
+        const nameText = range.getBoundingClientRect();
+        if (!numberText.width || !nameText.width) return;
+
+        // The name starts left of the number on A4. Include that difference
+        // when centering, and keep the name within its own print column.
+        const nameBox = name.getBoundingClientRect();
+        const scale = nameBox.width / parseFloat(window.getComputedStyle(name).width) || 1;
+        const centerOffset = numberText.left - nameText.left + (numberText.width - nameText.width) / 2;
+        const spaceRemaining = nameBox.right - nameText.right;
         const offset = Math.max(0, Math.min(centerOffset, spaceRemaining));
         name.style.transform = 'translateX(' + (offset / scale) + 'px)';
     }});
