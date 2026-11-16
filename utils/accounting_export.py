@@ -44,7 +44,9 @@ def statement_excel(statements, *, show_receipts=False, title="應收帳款明�
         for d in s["documents"]:
             for item in d["items"]:
                 details.append([s["customer_id"], s["customer_name"], d["date"], d["number"], printed_code(item), item["name"],
-                                Decimal(item["quantity"]), item["unit"], Decimal(item["price"]), int(item["amount"]), item.get("notes", ""), item.get("order_number", "")])
+                                Decimal(item["quantity"]), item["unit"], Decimal(item["price"]) if item["price"] != "" else None,
+                                int(item["amount"]) if item["amount"] != "" else None,
+                                item.get("notes", ""), item.get("order_number", "")])
     from openpyxl import load_workbook
     from openpyxl.styles import Alignment, Border, Font, Side
     from openpyxl.worksheet.pagebreak import Break

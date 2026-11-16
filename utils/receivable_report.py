@@ -6,7 +6,7 @@ from html import escape
 
 from .customer_repository import _mappings
 from .database import connect_from_config
-from .shipment_print import COMPANY, _wrap, display_price, purchase_order_text, PURCHASE_ORDER_FIT
+from .shipment_print import COMPANY, _wrap, display_amount, display_price, purchase_order_text, PURCHASE_ORDER_FIT
 from .shipment_repository import ShipmentError, _valid_date
 from .shipment_codes import printed_code
 from .print_stock import stock_geometry, stock_sheet, stock_style
@@ -145,7 +145,7 @@ def statement_pages(statements, capacity=None, *, paper_size="auto", name_width=
             context.append(header)
             for item in document["items"]:
                 cells = [_wrap(display_price(item[key]) if key in ("price", "quantity") else
-                               f"{int(item[key]):,}" if key == "amount" else printed_code(item) if key == "code" else item.get(key, ""), width) for key, width in fields]
+                               display_amount(item[key]) if key == "amount" else printed_code(item) if key == "code" else item.get(key, ""), width) for key, width in fields]
                 cells[-1] = [purchase_order_text(item.get("order_number", ""))]
                 for line in range(max(map(len, cells))):
                     rows.append([cell[line] if line < len(cell) else "" for cell in cells])

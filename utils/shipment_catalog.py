@@ -8,7 +8,7 @@ from .database import connect_from_config
 from .product_repository import (
     ProductError, _document, blank_product, product_from_recipe, save_product,
 )
-from .shipment_repository import ShipmentError, recent_shipment_price, shipment_price_history
+from .shipment_repository import ShipmentError, is_blank_price, recent_shipment_price, shipment_price_history
 from .shipment_codes import display_code_options
 
 
@@ -20,8 +20,8 @@ def shipment_choices(config, customer_id, *, all_recipes=False):
     products = {p["product_id"]: _document(p) for p in masters if customer_id and p["lifecycle_status"] == "active" and (not p["recipe_id"] or p["recipe_status"] == "active")}
     master_codes = {p["product_id"].upper() for p in masters}
     choices = {p["colorpowder_id"]: dict(blank_product(), product_id=p["colorpowder_id"], name=p["name"] or p["international_code"] or p["colorpowder_id"],
-               sales_unit="KG", base_unit="KG", specification=p["package"] or "") for p in powders if p["colorpowder_id"].upper() not in master_codes}
-    choices.update({r["recipe_id"]: dict(product_from_recipe(r), _recipe_customer=r["customer_id"] or "") for r in recipes
+               sales_unit="KG", base_unit="KG", standard_price="", specification=p["package"] or "") for p in powders if p["colorpowder_id"].upper() not in master_codes}
+    choices.update({r["recipe_id"]: dict(product_from_recipe(r), standard_price="", _recipe_customer=r["customer_id"] or "") for r in recipes
                     if r["recipe_id"].upper() not in master_codes and (all_recipes or customer_id and r["customer_id"] in (customer_id, "", None))})
     choices.update(products)
     return choices
@@ -99,7 +99,7 @@ def item_price(config, document, code, unit, product, *, history=None):
         return str(previous["price"])
     if product["sales_unit"].upper() == unit.upper() and product["tax_mode"] == document["tax_mode"]:
         return product["standard_price"]
-    return "0"
+    return ""
 
 
 def complete_items(config, document, items, previous, *, choices=None, history=None, matcher=None):
@@ -138,7 +138,9 @@ def complete_items(config, document, items, previous, *, choices=None, history=N
             same_price = same_price or Decimal(str(item.get("price"))) == Decimal(str(old.get("price")))
         except InvalidOperation:
             pass
-        if item.get("price", "") == "" or same_price:
+        if (same_price and not is_blank_price(item.get("price"))) or (
+            code_changed and is_blank_price(item.get("price")) and is_blank_price(old.get("price"))
+        ):
             price_document = dict(document, tax_mode="免稅") if item.get("tax_exempt") else document
             item["price"] = item_price(config, price_document, code, item["unit"], match, history=history)
     return result

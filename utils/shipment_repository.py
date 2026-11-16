@@ -52,6 +52,10 @@ def item_exempt(item):
     raise ShipmentError("品項免稅須為勾選或未勾選")
 
 
+def is_blank_price(value):
+    return value is None or str(value).strip() == ""
+
+
 def calculate(items, tax_mode, tax_rate):
     if tax_mode not in TAX_MODES:
         raise ShipmentError("請選擇課稅類別")
@@ -59,15 +63,17 @@ def calculate(items, tax_mode, tax_rate):
     lines = []
     for item in items:
         quantity = decimal_value(item.get("quantity"), "數量")
-        price = decimal_value(item.get("price"), "單價")
         if quantity <= 0:
             raise ShipmentError("品項數量必須大於 0")
-        lines.append(money(quantity * price))
-    subtotal = sum(lines, Decimal(0))
-    taxable = sum((amount for item, amount in zip(items, lines) if not item_exempt(item)), Decimal(0))
+        price = item.get("price")
+        lines.append(None if is_blank_price(price) else money(quantity * decimal_value(price, "單價")))
+    subtotal = sum((amount for amount in lines if amount is not None), Decimal(0))
+    exemptions = [item_exempt(item) for item in items]
+    taxable = sum((amount for exempt, amount in zip(exemptions, lines)
+                   if not exempt and amount is not None), Decimal(0))
     tax = money(taxable * rate) if tax_mode == "外加" else taxable - money(taxable / (1 + rate)) if tax_mode == "內含" else Decimal(0)
     net = subtotal - tax if tax_mode == "內含" else subtotal
-    return {"line_amounts": [str(x) for x in lines], "net_amount": str(net),
+    return {"line_amounts": ["" if x is None else str(x) for x in lines], "net_amount": str(net),
             "tax_amount": str(tax), "total_amount": str(net + tax)}
 
 
@@ -113,7 +119,7 @@ def shipment_price_history(config, customer_id, shipment_date, exclude_id=""):
             "FROM shipment_orders s JOIN shipment_order_items i ON i.shipment_id=s.id "
             "WHERE s.status='draft' AND s.customer_id=? AND s.id<>? AND s.shipment_date<=?), "
             "ranked AS (SELECT *,ROW_NUMBER() OVER ("
-            "PARTITION BY UPPER(TRIM(code)),UPPER(TRIM(unit)),tax_mode,UPPER(name) "
+            "PARTITION BY UPPER(TRIM(code)),UPPER(TRIM(unit)),tax_mode,UPPER(name),COALESCE(TRIM(price),'')='' "
             "ORDER BY shipment_date DESC,updated_at DESC,created_at DESC,shipment_number DESC,line_number DESC) AS price_rank "
             "FROM history) "
             "SELECT code,unit,price,name,tax_exempt,tax_mode,shipment_number,shipment_date FROM ranked "
@@ -150,7 +156,7 @@ def recent_shipment_price(config, customer_id, code, unit, *, shipment_date, tax
     if history is not None:
         return next((row for row in history if str(row["code"]).strip().upper() == code.strip().upper()
                      and str(row["unit"]).strip().upper() == unit.strip().upper()
-                     and row["tax_mode"] in compatible_modes), None)
+                     and row["tax_mode"] in compatible_modes and not is_blank_price(row["price"])), None)
     placeholders = ",".join("?" for _ in compatible_modes)
     with connect_from_config(config) as conn:
         return _mapping(conn.execute(
@@ -159,6 +165,7 @@ def recent_shipment_price(config, customer_id, code, unit, *, shipment_date, tax
             "WHERE s.status='draft' AND s.customer_id=? AND s.id<>? AND s.shipment_date<=? "
             "AND UPPER(TRIM(json_extract(i.payload_json,'$.code')))=UPPER(TRIM(?)) "
             "AND UPPER(TRIM(json_extract(i.payload_json,'$.unit')))=UPPER(TRIM(?)) "
+            "AND COALESCE(TRIM(json_extract(i.payload_json,'$.price')),'') <> '' "
             f"AND (CASE WHEN json_extract(i.payload_json,'$.tax_exempt')=1 THEN '免稅' ELSE json_extract(s.payload_json,'$.tax_mode') END) IN ({placeholders}) "
             "ORDER BY s.shipment_date DESC,s.created_at DESC,s.shipment_number DESC,i.line_number DESC LIMIT 1",
             (customer_id, exclude_id or "", shipment_date, code, unit, *compatible_modes)))
