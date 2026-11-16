@@ -763,17 +763,16 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                                              shipment_date=document["shipment_date"], tax_mode="免稅" if defaults.get("tax_exempt") else document["tax_mode"],
                                              exclude_id=document.get("id", ""), history=history)
             chosen = choices.get(code)
-            price = ""
+            price = "0"
             if previous:
                 price = str(previous["price"])
                 st.caption(f"前次單價：{display_price(price)} / {unit} · {previous['shipment_date']} · {previous['shipment_number']}")
             elif code in choices:
-                if (not is_blank_price(chosen["standard_price"]) and chosen["sales_unit"].upper() == unit.upper()
-                        and chosen["tax_mode"] == document["tax_mode"]):
+                if chosen["sales_unit"].upper() == unit.upper() and chosen["tax_mode"] == document["tax_mode"]:
                     price = chosen["standard_price"]
                     st.caption(f"標準售價：{display_price(price)} / {unit}")
                 else:
-                    st.caption("沒有可帶入的單價，可留白後補")
+                    st.caption("無相符單位或課稅方式的單價，可清空後補")
             if add_col.button("加入", key="shipment_add_recipe", disabled=not code or not unit, use_container_width=True):
                 requested_item = dict(code=code, name=defaults.get("name") or chosen["name"], quantity=str(quantity), unit=unit,
                                       price=price, tax_exempt=bool(defaults.get("tax_exempt", False)), order_number="", notes="")

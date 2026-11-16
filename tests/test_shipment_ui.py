@@ -493,7 +493,12 @@ render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(confi
     next(w for w in app.selectbox if w.label == '客戶').set_value('C01').run()
     next(w for w in app.selectbox if w.label == '貨品／配方').set_value('P1').run()
     app.button(key='shipment_add_recipe').click().run()
-    assert app.session_state['shipment_draft']['items'][0]['price'] == ''
+    assert float(app.session_state['shipment_draft']['items'][0]['price']) == 0
+    epoch = app.session_state['shipment_epoch']
+    grid_epoch = app.session_state['shipment_grid_epoch']
+    app.session_state[f'shipment_{epoch}_items_{grid_epoch}'] = {
+        'edited_rows': {0: {'單價': None}}, 'added_rows': [], 'deleted_rows': [],
+    }
 
     app.button(key='shipment_save').click().run()
     assert not app.exception
