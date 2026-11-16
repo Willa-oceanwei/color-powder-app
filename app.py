@@ -162,12 +162,12 @@ from utils.inventory_repository import (
     update_inventory_movement,
 )
 from utils.production_order_repository import (
+    create_production_order,
     merge_production_order_packages,
     ProductionOrderError,
     list_production_orders,
     set_production_order_cancelled,
     update_production_order,
-    upsert_production_order,
 )
 from utils.outsourcing_repository import (
     OutsourcingError,
@@ -1965,13 +1965,15 @@ def render_metric_cards(items):
 # ===== 更新版：代工單卡片改為方塊網格排列 + 長內容可展開 =====
 # 取代原本的 render_oem_status_cards 函式（整個函式覆蓋掉即可）
 
-def render_oem_status_cards(df, df_order=None, df_recipe=None, show_preview=False):
+def render_oem_status_cards(df, df_order=None, show_preview=False):
     """把代工單 DataFrame 渲染成網格卡片；內容較長的欄位收進可展開區塊。
 
-    若有傳入 df_order（生產單）與 df_recipe（配方管理）且 show_preview=True，
+    若有傳入 df_order（生產單）且 show_preview=True，
     每張卡片右下角會多一顆小小的「👁 預覽」按鈕；點下去會直接彈出對應生產單的
     配方內容、備註等，不需要再切回「生產單管理」分頁。show_preview 預設 False，
     也就是預覽按鈕預設完全不顯示，交由外層的滑動開關控制是否開啟。"""
+
+    from utils.production_order_repository import production_order_recipe_rows
 
     status_style = {
         "⏳ 未載回": {"bg": "rgba(230,171,2,0.15)",  "fg": "#e6ab02", "border": "rgba(230,171,2,0.35)"},
@@ -2000,7 +2002,7 @@ def render_oem_status_cards(df, df_order=None, df_recipe=None, show_preview=Fals
 
     st.markdown("<div style='height:12px;'></div>", unsafe_allow_html=True)
 
-    can_preview = (df_order is not None) and (df_recipe is not None) and ("生產單號" in df.columns)
+    can_preview = df_order is not None and "生產單號" in df.columns
 
     # ===== 卡片網格：改用 st.columns 排版，讓每張卡片可以嵌入真正的預覽按鈕 =====
     cards_per_row = 3
@@ -2101,19 +2103,19 @@ def render_oem_status_cards(df, df_order=None, df_recipe=None, show_preview=Fals
                                         k: "" if v is None or pd.isna(v) else str(v)
                                         for k, v in order_dict.items()
                                     }
-                                    recipe_code = order_dict.get("配方編號", "")
-                                    recipe_rows = (
-                                        df_recipe[df_recipe["配方編號"] == recipe_code]
-                                        if "配方編號" in df_recipe.columns else pd.DataFrame()
-                                    )
-                                    recipe_row = recipe_rows.iloc[0].to_dict() if not recipe_rows.empty else {}
+                                    recipe_row, additional_recipes = production_order_recipe_rows(order_dict)
 
                                     st.caption(
                                         f"生產單 {production_order_no}｜{order_dict.get('顏色','')}｜"
                                         f"{order_dict.get('客戶名稱','')}"
                                     )
+                                    if not recipe_row:
+                                        st.warning("缺少原始主配方紀錄，無法核對當時的用量。")
+                                        continue
+                                    if additional_recipes is None:
+                                        st.warning("缺少原始附加配方紀錄，以下僅顯示主配方。")
                                     preview_text = generate_order_preview_text(
-                                        order_dict, recipe_row, df_recipe, show_additional_ids=True
+                                        order_dict, recipe_row, additional_recipes, show_additional_ids=True
                                     )
                                     preview_content = preview_text.removeprefix("```\n").removesuffix("\n```")
                                     preview_content = re.sub(
@@ -2344,43 +2346,16 @@ def colorant_shipment_display_multiplier(order_row):
     ).strip()
     return 1 if mode == "實際公斤（1 = 1kg）" else 100
 
-def calculate_shipment_display(order_row, recipe_df):
-    """Format the package summary using the recipe's current measurement unit.
+def calculate_shipment_display(order_row):
+    """Format historical packages using the order's recorded recipe or unit."""
+    from utils.production_order_repository import production_order_recipe_rows
 
-    Production-order payloads contain a unit snapshot, but older/stale payloads can
-    disagree with the recipe used by the printable order.  Prefer the matching
-    recipe so the record table and print preview apply the same conversion.
-    """
-    formula_id = str(order_row.get("配方編號", "") or "").strip()
-    if not formula_id:
+    if not str(order_row.get("配方編號", "") or "").strip():
         return ""
 
-    unit = str(order_row.get("計量單位", "") or "").strip()
-    category = str(order_row.get("色粉類別", "") or "").strip()
-    if hasattr(recipe_df, "columns"):
-        # Convert only the matching recipe, not the entire master for every order.
-        matching = recipe_df[
-            recipe_df["配方編號"].fillna("").astype(str).str.strip() == formula_id
-        ] if "配方編號" in recipe_df.columns else recipe_df.iloc[:0]
-        recipe_records = [matching.iloc[0].to_dict()] if not matching.empty else []
-    else:
-        recipe_records = recipe_df or []
-    try:
-        recipe = next(
-            item
-            for item in recipe_records
-            if str(item.get("配方編號", "") or "").strip() == formula_id
-        )
-    except (StopIteration, TypeError):
-        recipe = None
-    if recipe is not None:
-        try:
-            recipe_unit = str(recipe.get("計量單位", "") or "").strip()
-            recipe_category = str(recipe.get("色粉類別", "") or "").strip()
-            unit = recipe_unit or unit
-            category = recipe_category or category
-        except (TypeError, AttributeError):
-            pass
+    recipe, _ = production_order_recipe_rows(order_row)
+    unit = str(recipe.get("計量單位") or order_row.get("計量單位") or "").strip()
+    category = str(recipe.get("色粉類別") or order_row.get("色粉類別") or "").strip()
 
     if unit == "kg" and category == "色母":
         multiplier = colorant_shipment_display_multiplier(order_row)
@@ -2885,7 +2860,7 @@ def generate_production_order_print(
     return "<br>".join(lines)
 
 # --------------- 新增：列印專用 HTML 生成函式 ---------------
-def generate_order_preview_text(order, recipe_row, df_recipe, show_additional_ids=True):
+def generate_order_preview_text(order, recipe_row, additional_recipe_rows, show_additional_ids=True):
     """共用的生產單預覽文字產生器（配方內容＋備註）。
     原本只有「生產單管理」分頁內部使用，抽成全域函式後，
     「代工管理」分頁的代工單卡片預覽鍵也可以呼叫同一份邏輯。"""
@@ -2955,15 +2930,6 @@ def generate_order_preview_text(order, recipe_row, df_recipe, show_additional_id
         include_remark=False
     )
 
-    main_code = str(order.get("配方編號", "")).strip()
-    if main_code and df_recipe is not None and not df_recipe.empty and "配方類別" in df_recipe.columns:
-        additional_recipe_rows = df_recipe[
-            (df_recipe["配方類別"] == "附加配方") &
-            (df_recipe["原始配方"].astype(str).str.strip() == main_code)
-        ].to_dict("records")
-    else:
-        additional_recipe_rows = []
-
     if additional_recipe_rows:
         powder_label_width = 12
         number_col_width = 7
@@ -3027,7 +2993,9 @@ def generate_order_preview_text(order, recipe_row, df_recipe, show_additional_id
     return "```\n" + plain_text.strip() + "\n```"
 
 
-def generate_print_page_content(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
+def generate_print_page_content(
+    order, recipe_row, additional_recipe_rows=None, show_additional_ids=True, recipe_notice="",
+):
     if recipe_row is None:
         recipe_row = {}
 
@@ -3035,14 +3003,22 @@ def generate_print_page_content(order, recipe_row, additional_recipe_rows=None, 
     if additional_recipe_rows is not None and not isinstance(additional_recipe_rows, list):
         additional_recipe_rows = [additional_recipe_rows]
 
-    # ✅ 傳入 show_additional_ids 給產生列印內容的函式
-    content = generate_production_order_print(
-        order,
-        recipe_row,
-        additional_recipe_rows,
-        show_additional_ids=show_additional_ids,  # 👈 新增參數
-        include_remark=True
-    )
+    if recipe_notice and not recipe_row:
+        from html import escape
+
+        content = "<br>".join(
+            escape(str(order[key]))
+            for key in ("生產單號", "配方編號", "顏色", "備註")
+            if order.get(key)
+        )
+    else:
+        content = generate_production_order_print(
+            order, recipe_row, additional_recipe_rows,
+            show_additional_ids=show_additional_ids,
+            include_remark=True,
+        )
+    if recipe_notice:
+        content = f"<b>{recipe_notice}</b><br>{content}"
     created_time = str(order.get("建立時間", "") or "")
 
     html_template = """
@@ -3104,32 +3080,29 @@ def generate_print_page_content(order, recipe_row, additional_recipe_rows=None, 
     return html
 
 
-def build_a5_production_order_download(order, df_recipe, show_additional_ids=True):
-    """Build the A5 print file for an already-saved production order."""
+def build_a5_production_order_download(order, show_additional_ids=True):
+    """Build the A5 print file from the production order's recorded recipe."""
+    from utils.production_order_repository import production_order_recipe_rows
+
+    recipe_row, additional_recipe_rows = production_order_recipe_rows(order)
     order_dict = {
         key: "" if value is None or pd.isna(value) else str(value)
         for key, value in dict(order).items()
+        if not key.startswith("_") and key != "附加配方"
     }
     recipe_code = order_dict.get("配方編號", "").strip()
-    recipe_row = {}
-    additional_recipe_rows = []
-
-    if df_recipe is not None and not df_recipe.empty and "配方編號" in df_recipe.columns:
-        recipe_matches = df_recipe[df_recipe["配方編號"].astype(str).str.strip() == recipe_code]
-        if not recipe_matches.empty:
-            recipe_row = recipe_matches.iloc[0].to_dict()
-
-        if {"配方類別", "原始配方"}.issubset(df_recipe.columns):
-            additional_recipe_rows = df_recipe[
-                (df_recipe["配方類別"].astype(str).str.strip() == "附加配方")
-                & (df_recipe["原始配方"].astype(str).str.strip() == recipe_code)
-            ].to_dict("records")
+    recipe_notice = ""
+    if not recipe_row:
+        recipe_notice = "缺少原始主配方紀錄，此頁僅供查閱，請勿依此生產。"
+    elif additional_recipe_rows is None:
+        recipe_notice = "缺少原始附加配方紀錄，此頁僅供查閱，請勿依此生產。"
 
     html = generate_print_page_content(
         order=order_dict,
         recipe_row=recipe_row,
         additional_recipe_rows=additional_recipe_rows,
         show_additional_ids=show_additional_ids,
+        recipe_notice=recipe_notice,
     )
     raw_order_no = order_dict.get("生產單號", "").strip() or "未命名"
     safe_order_no = re.sub(r'[\\/:*?"<>|]', "-", raw_order_no)
@@ -5805,6 +5778,7 @@ def rerun_production_order_workspace():
 def render_production_order_workspace():
     """Keep production edits and tab updates inside the mounted workspace."""
     from utils.production_print_preview import build_production_order_preview, PRODUCTION_A5_ACTION_STYLE
+    from utils.production_order_repository import production_order_recipe_rows
     from utils.recipe_code_review_ui import render_recipe_code_review
 
     # ===== 縮小整個頁面最上方空白 =====
@@ -5837,13 +5811,15 @@ def render_production_order_workspace():
 
     production_data_started_at = time.perf_counter()
     production_data_cached = (st.session_state.get("production_data_loaded", False)
-                              and st.session_state.get("production_recipe_ids_version") == 1)
+                              and st.session_state.get("production_recipe_ids_version") == 2
+                              and (st.session_state.df_order.empty
+                                   or "_recipe_snapshot_json" in st.session_state.df_order.columns))
     if not production_data_cached:
         # 生產單與配方互不相依，首次開頁時並行讀取；後續 widget rerun
         # 直接沿用 session_state，避免每次輸入或切 tab 都重打兩次 Turso。
         with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
             orders_future = executor.submit(
-                list_production_orders, DATABASE_CONFIG, include_cancelled=True
+                list_production_orders, DATABASE_CONFIG, include_cancelled=True, include_recipe_snapshot=True
             )
             recipes_future = executor.submit(list_recipes, DATABASE_CONFIG)
             if DATABASE_CONFIG.backend == "turso":
@@ -5875,7 +5851,7 @@ def render_production_order_workspace():
         st.session_state.df_order = df_order
         st.session_state.df_recipe = df_recipe
         st.session_state.production_data_loaded = True
-        st.session_state.production_recipe_ids_version = 1
+        st.session_state.production_recipe_ids_version = 2
     
     df_recipe = st.session_state.df_recipe
     df_order = st.session_state.df_order.copy()
@@ -6947,7 +6923,6 @@ def render_production_order_workspace():
                     # =================================================
                     # ✅ Step 3：儲存成功後，記住這次內容
                     # =================================================
-                    st.session_state.last_saved_order_snapshot = current_snapshot
             
                     # 低庫存檢查
                     # 📌 4️⃣ 低庫存檢查（統一與庫存區邏輯）
@@ -7036,8 +7011,6 @@ def render_production_order_workspace():
 
                     if alerts:
                         st.warning("💀 以下色粉庫存過低：\n" + "\n".join(alerts))
-
-                    st.session_state["last_final_stock"] = last_stock
 
                     order_no = str(order.get("生產單號", "")).strip()
 
@@ -7138,16 +7111,28 @@ def render_production_order_workspace():
                         order["_merge_old_order_no"] = old_order_no_for_merge
 
                     try:
-                        upsert_production_order(DATABASE_CONFIG, order)
+                        if order.get("_merge_applied"):
+                            update_production_order(
+                                DATABASE_CONFIG, order, expected_recipe_rows=all_recipes_for_check,
+                            )
+                        else:
+                            create_production_order(
+                                DATABASE_CONFIG, order, expected_recipe_rows=all_recipes_for_check,
+                            )
+                        st.session_state["last_final_stock"] = last_stock
                         st.session_state.new_order_saved = True
                         st.session_state["saved_label_snapshot"] = {
                             "order": dict(order),
+                            "recipe_row": recipe_row,
+                            "additional_recipes": all_recipes_for_check[1:],
                             "a5_downloaded": False,
                         }
                         st.session_state.setdefault(f"show_big_label_{order['生產單號']}", False)
                         st.session_state.last_saved_order_snapshot = current_snapshot
-                        df_order = pd.DataFrame(list_production_orders(DATABASE_CONFIG, include_cancelled=True)).fillna("").astype(str)
-                        df_order.to_csv("data/order.csv", index=False, encoding="utf-8-sig")
+                        df_order = pd.DataFrame(list_production_orders(DATABASE_CONFIG, include_cancelled=True, include_recipe_snapshot=True)).fillna("").astype(str)
+                        df_order.drop(columns="_recipe_snapshot_json", errors="ignore").to_csv(
+                            "data/order.csv", index=False, encoding="utf-8-sig"
+                        )
                         st.session_state.df_order = df_order
                         st.success(f"✅ 生產單 {order['生產單號']} 已存至 Turso，等待 Sheet PUSH！")
                         # ✅【防止重複儲存】只有真的寫入成功才記住
@@ -7253,6 +7238,11 @@ def render_production_order_workspace():
                         ):
                             st.session_state.pop(_k, None)
             
+                    except ProductionOrderError as exc:
+                        st.error(f"❌ 寫入失敗：{exc}")
+                        st.session_state["production_data_loaded"] = False
+                        invalidate_read_cache(DATABASE_CONFIG)
+                        st.stop()
                     except Exception as e:
                         st.error(f"❌ 寫入失敗：{e}")
                 
@@ -7260,7 +7250,14 @@ def render_production_order_workspace():
             show_ids = st.toggle("列印時顯示附加配方編號", value=False, key="show_ids_tab1")
 
             print_order = order
-            if order.get("_merge_applied"):
+            print_recipe = recipe_row
+            print_additions = order.get("附加配方", [])
+            saved_snapshot = st.session_state.get("saved_label_snapshot") or {}
+            if st.session_state.get("new_order_saved") and "recipe_row" in saved_snapshot:
+                print_order = saved_snapshot["order"]
+                print_recipe = saved_snapshot["recipe_row"]
+                print_additions = saved_snapshot["additional_recipes"]
+            if print_order.get("_merge_applied"):
                 print_mode = st.radio(
                     "生產單列印顯示方式",
                     ["合併後總量", "僅顯示這次追加數量"],
@@ -7269,8 +7266,8 @@ def render_production_order_workspace():
                     help="這個選項只影響列印畫面顯示的數字，不會改變已經存檔的合併後總量。",
                 )
                 if print_mode == "僅顯示這次追加數量":
-                    print_order = order.copy()
-                    delta_packaging = order.get("_delta_包裝", {})
+                    print_order = print_order.copy()
+                    delta_packaging = print_order.get("_delta_包裝", {})
                     for i in range(1, 5):
                         w, c = delta_packaging.get(i, ("", ""))
                         print_order[f"包裝重量{i}"] = w
@@ -7278,8 +7275,8 @@ def render_production_order_workspace():
 
             print_html = generate_print_page_content(
                 order=print_order,
-                recipe_row=recipe_row,
-                additional_recipe_rows=order.get("附加配方", []),
+                recipe_row=print_recipe,
+                additional_recipe_rows=print_additions,
                 show_additional_ids=show_ids
             )
 
@@ -7385,7 +7382,7 @@ def render_production_order_workspace():
             if st.button("📥 重新載入生產單資料", key="reload_order_tab1_bottom", use_container_width=True):
                 invalidate_read_cache(DATABASE_CONFIG)
                 try:
-                    latest_order_df = pd.DataFrame(list_production_orders(DATABASE_CONFIG, include_cancelled=True))
+                    latest_order_df = pd.DataFrame(list_production_orders(DATABASE_CONFIG, include_cancelled=True, include_recipe_snapshot=True))
                     st.session_state.df_order = latest_order_df.copy()
                     st.toast("已從 Turso 重新載入生產單資料", icon="🔄")
                 except Exception as e:
@@ -7442,7 +7439,7 @@ def render_production_order_workspace():
     
         if not page_data.empty:
             page_data["出貨數量"] = page_data.apply(
-                lambda row: calculate_shipment_display(row, df_recipe), axis=1
+                calculate_shipment_display, axis=1
             )
     
         existing_cols = [c for c in display_cols if c in page_data.columns]
@@ -7461,7 +7458,7 @@ def render_production_order_workspace():
                 st.session_state.pop("history_labels_pinned_order_id", None)
             if tab2_download_order is not None:
                 tab2_a5_data, tab2_a5_filename = build_a5_production_order_download(
-                    tab2_download_order, df_recipe, show_additional_ids=True
+                    tab2_download_order, show_additional_ids=True
                 )
                 render_order_download_actions(tab2_download_order, tab2_a5_data, tab2_a5_filename)
             else:
@@ -7542,7 +7539,7 @@ def render_production_order_workspace():
             if submit_search:
                 st.session_state["production_manage_filters"] = (search_date_start, search_date_end, search_order)
                 try:
-                    df_order = pd.DataFrame(list_production_orders(DATABASE_CONFIG, include_cancelled=True))
+                    df_order = pd.DataFrame(list_production_orders(DATABASE_CONFIG, include_cancelled=True, include_recipe_snapshot=True))
                     if not df_order.empty:
                         df_order = df_order.fillna("").astype(str)
                     st.session_state.df_order = df_order.copy()
@@ -7610,7 +7607,7 @@ def render_production_order_workspace():
                 end_idx = min(start_idx + page_size, len(df_display_tab3))
                 df_page = df_display_tab3.iloc[start_idx:end_idx].copy()
                 df_page["出貨數量"] = df_page.apply(
-                    lambda row: calculate_shipment_display(row, df_recipe), axis=1
+                    calculate_shipment_display, axis=1
                 )
                 
                 # ===== 顯示表格 =====
@@ -7652,17 +7649,10 @@ def render_production_order_workspace():
             # st.info("💡 請輸入搜尋條件後按「🔍 搜尋」")
             selected_order = None
     
-        def generate_order_preview_text_tab3(order, recipe_row, show_additional_ids=True):
-            # 邏輯已抽成全域函式 generate_order_preview_text（見檔案上方），
-            # 這裡只是保留原本呼叫名稱，改為委派給共用函式。
-            return generate_order_preview_text(order, recipe_row, df_recipe, show_additional_ids=show_additional_ids)
-    
         if selected_order is not None:
             order_dict = selected_order.to_dict()
             order_dict = {k: "" if v is None or pd.isna(v) else str(v) for k, v in order_dict.items()}
     
-            recipe_rows = df_recipe[df_recipe["配方編號"] == order_dict.get("配方編號", "")]
-            recipe_row = recipe_rows.iloc[0].to_dict() if not recipe_rows.empty else {}
             current_order_no = str(selected_order.get("生產單號", "")).strip()
             sync_selected_production_order_state(
                 st.session_state, current_order_no, order_dict
@@ -7688,7 +7678,7 @@ def render_production_order_workspace():
                     show_ids = (show_ids_mode == "顯示")
 
                 preview_a5_data, preview_a5_filename = build_a5_production_order_download(
-                    order_dict, df_recipe, show_additional_ids=show_ids
+                    order_dict, show_additional_ids=show_ids
                 )
                 with download_col:
                     st.download_button(
@@ -7759,7 +7749,7 @@ def render_production_order_workspace():
                             else:
                                 # 立即以 Turso 最新狀態取代頁面快取，新增單的重複檢查不必等使用者按「重新整理」。
                                 st.session_state.df_order = pd.DataFrame(
-                                    list_production_orders(DATABASE_CONFIG, include_cancelled=True)
+                                    list_production_orders(DATABASE_CONFIG, include_cancelled=True, include_recipe_snapshot=True)
                                 ).fillna("").astype(str)
                                 invalidate_inventory_caches()
                                 clear_production_merge_cache(order_dict.get("配方編號", ""))
@@ -7806,15 +7796,8 @@ def render_production_order_workspace():
         
             order_dict = order_row.iloc[0].to_dict()
         
-            recipe_id = order_dict.get("配方編號", "")
-            recipe_rows = df_recipe[df_recipe["配方編號"] == recipe_id]
-            if recipe_rows.empty:
-                st.warning(f"找不到配方編號：{recipe_id}")
-                st.stop()
-        
-            recipe_row = recipe_rows.iloc[0].to_dict()
-
-            is_editing_colorant = str(recipe_row.get("色粉類別", "")).strip() == "色母"
+            recipe_row, _ = production_order_recipe_rows(order_dict)
+            is_editing_colorant = (recipe_row.get("色粉類別") or order_dict.get("色粉類別", "")).strip() == "色母"
             if is_editing_colorant:
                 edit_display_as_actual_kg = st.toggle(
                     "實際公斤顯示（關閉：1 = 100kg／開啟：1 = 1kg）",
@@ -9018,19 +9001,18 @@ if menu == "代工管理":
                         by=["status_order", "建立時間_dt"], ascending=[True, False]
                     ).drop(columns=["status_order", "已交貨", "交貨備註", "建立時間_dt", "最近載回日期_sort", "最近進度日期_sort"], errors="ignore")
 
-                    # 讀取「生產單」「配方管理」供卡片上的「👁 預覽」按鈕使用
+                    # 讀取「生產單」及其配方快照，供卡片上的「👁 預覽」按鈕使用
                     # （即使還沒切過「生產單管理」分頁也能正常預覽）
                     df_order_for_preview = st.session_state.get("df_order")
-                    if df_order_for_preview is None or df_order_for_preview.empty:
-                        df_order_for_preview = pd.DataFrame(list_production_orders(DATABASE_CONFIG))
-                    df_recipe_for_preview = st.session_state.get("df_recipe")
-                    if df_recipe_for_preview is None or df_recipe_for_preview.empty:
-                        df_recipe_for_preview = pd.DataFrame(list_recipes(DATABASE_CONFIG))
-
+                    if show_card_preview and (
+                        df_order_for_preview is None or "_recipe_snapshot_json" not in df_order_for_preview.columns
+                    ):
+                        df_order_for_preview = pd.DataFrame(
+                            list_production_orders(DATABASE_CONFIG, include_recipe_snapshot=True)
+                        )
                     render_oem_status_cards(
                         df_progress_open,
                         df_order=df_order_for_preview,
-                        df_recipe=df_recipe_for_preview,
                         show_preview=show_card_preview,
                     )
                 else:

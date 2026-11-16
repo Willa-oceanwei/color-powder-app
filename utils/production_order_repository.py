@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import ast
 import json
 from typing import Any
 
 from .read_cache import cached_read
 from .database import DatabaseConfig, connect_from_config, enqueue_sheet_sync, utc_now_iso
-from .outsourcing_repository import _mappings, _set_outsourcing_lifecycle
+from .outsourcing_repository import _set_outsourcing_lifecycle
+from .recipe_repository import _recipe_sheet_payload, normalize_color_powder_id
 
 
 class ProductionOrderError(RuntimeError):
@@ -95,33 +97,90 @@ def merge_production_order_packages(
 def _recipe_snapshot(conn, recipe_id: str) -> tuple[int | None, str | None]:
     if not recipe_id:
         return None, None
-    recipe = _mapping(conn.execute("SELECT * FROM recipes WHERE recipe_id=?", (recipe_id,)))
-    if recipe is None:
-        raise ProductionOrderError(f"找不到配方編號 {recipe_id}")
-    components = _mappings(conn.execute(
-        """SELECT position, colorpowder_id, weight FROM recipe_components
-           WHERE recipe_id=? ORDER BY position""",
-        (recipe_id,),
+    rows = _mappings(conn.execute(
+        """SELECT r.*, c.position AS component_position, c.colorpowder_id AS component_id,
+                  c.weight AS component_weight
+           FROM recipes r LEFT JOIN recipe_components c ON c.recipe_id=r.recipe_id
+           WHERE r.recipe_id=? OR
+                 (r.original_recipe=? AND r.recipe_category='附加配方' AND r.lifecycle_status='active')
+           ORDER BY r.recipe_id, c.position""",
+        (recipe_id, recipe_id),
     ))
-    snapshot = dict(recipe)
-    snapshot["components"] = components
-    return int(recipe["version"]), json.dumps(snapshot, ensure_ascii=False, default=str)
+    snapshots = {}
+    for row in rows:
+        position = row.pop("component_position")
+        powder_id = row.pop("component_id")
+        weight = row.pop("component_weight")
+        snapshot = snapshots.setdefault(row["recipe_id"], {**row, "components": []})
+        if position is not None:
+            snapshot["components"].append({
+                "position": position, "colorpowder_id": powder_id, "weight": weight,
+            })
+    main = snapshots.pop(recipe_id, None)
+    if main is None:
+        raise ProductionOrderError(f"找不到配方編號 {recipe_id}")
+    main["additional_recipes"] = list(snapshots.values())
+    return int(main["version"]), json.dumps(main, ensure_ascii=False, default=str)
+
+
+def production_order_recipe_rows(order) -> tuple[dict, list[dict] | None]:
+    """Return the recorded main and additional recipes, if available."""
+    snapshot_json = order.get("_recipe_snapshot_json")
+    try:
+        snapshot = json.loads(snapshot_json) if snapshot_json else None
+        if not isinstance(snapshot, dict) or not snapshot.get("recipe_id"):
+            return {}, None
+        main = _recipe_sheet_payload(snapshot, snapshot["components"])
+        if "additional_recipes" in snapshot:
+            return main, [
+                _recipe_sheet_payload(recipe, recipe["components"])
+                for recipe in snapshot["additional_recipes"]
+            ]
+    except (ValueError, TypeError, KeyError, AttributeError):
+        return {}, None
+
+    # Older app orders stored the attached rows in the order payload.
+    recorded_additions = order.get("附加配方")
+    try:
+        if isinstance(recorded_additions, str):
+            recorded_additions = ast.literal_eval(recorded_additions)
+    except (ValueError, SyntaxError, RecursionError):
+        return main, None
+    if isinstance(recorded_additions, list) and all(
+        isinstance(recipe, dict) and recipe.get("配方編號") for recipe in recorded_additions
+    ):
+        return main, recorded_additions
+    return main, None
+
+
+def _recipe_signature(rows):
+    fields = (
+        "色粉類別", "計量單位", "比例1", "比例2", "比例3", "淨重", "淨重單位", "合計類別", "代工倍率",
+        *(f"{prefix}{position}" for position in range(1, 9) for prefix in ("色粉編號", "色粉重量")),
+    )
+    return [
+        (normalize_color_powder_id(row.get("配方編號")), *(str(row.get(field) or "").strip() for field in fields))
+        for row in rows
+    ]
 
 
 @cached_read
 def list_production_orders(
-    config: DatabaseConfig, *, include_cancelled: bool = False,
+    config: DatabaseConfig, *, include_cancelled: bool = False, include_recipe_snapshot: bool = False,
 ) -> list[dict[str, str]]:
     with connect_from_config(config) as conn:
         where = "" if include_cancelled else "WHERE cancelled_at IS NULL"
+        snapshot_column = ", recipe_snapshot_json" if include_recipe_snapshot else ""
         rows = _mappings(conn.execute(
-            f"""SELECT payload_json, cancelled_at, cancel_reason
+            f"""SELECT payload_json, cancelled_at, cancel_reason{snapshot_column}
                 FROM production_orders {where}
                 ORDER BY production_date, production_order_id"""
         ))
     result = []
     for row in rows:
         payload = json.loads(row["payload_json"])
+        if include_recipe_snapshot:
+            payload["_recipe_snapshot_json"] = row["recipe_snapshot_json"] or ""
         payload.update({
             "取消狀態": "已取消" if row.get("cancelled_at") else "有效",
             "取消時間": str(row.get("cancelled_at") or ""),
@@ -131,7 +190,10 @@ def list_production_orders(
     return result
 
 
-def _save(config: DatabaseConfig, row: dict[str, Any], *, create: bool) -> dict[str, str]:
+def _save(
+    config: DatabaseConfig, row: dict[str, Any], *, create: bool,
+    expected_recipe_rows: list[dict] | None = None,
+) -> dict[str, str]:
     from .customer_repository import CustomerError, require_current_customer_code
     payload = _payload(row)
     order_id = payload.get("生產單號", "")
@@ -153,7 +215,31 @@ def _save(config: DatabaseConfig, row: dict[str, Any], *, create: bool) -> dict[
             raise ProductionOrderError(f"找不到生產單號 {order_id}")
         if existing is not None and existing.get("cancelled_at"):
             raise ProductionOrderError("已取消的生產單不可修改；請先恢復生產單")
-        recipe_version, snapshot_json = _recipe_snapshot(conn, recipe_id)
+        if create or expected_recipe_rows is not None:
+            recipe_version, snapshot_json = _recipe_snapshot(conn, recipe_id)
+            if expected_recipe_rows is not None:
+                main, additions = production_order_recipe_rows({"_recipe_snapshot_json": snapshot_json})
+                if _recipe_signature([main, *(additions or [])]) != _recipe_signature(expected_recipe_rows):
+                    raise ProductionOrderError("配方已更新，請重新載入配方後再建立生產單。")
+        if existing is not None:
+            existing_payload = json.loads(existing["payload_json"])
+            linked_recipe_id = existing["recipe_id"] or ""
+            if recipe_id not in (linked_recipe_id, existing_payload.get("配方編號", "")):
+                raise ProductionOrderError("既有生產單的配方編號須保留。")
+            recipe_id = linked_recipe_id
+            if expected_recipe_rows is not None:
+                old_main, old_additions = production_order_recipe_rows({
+                    **existing_payload, "_recipe_snapshot_json": existing["recipe_snapshot_json"],
+                })
+                if not old_main or old_additions is None or (
+                    _recipe_signature([old_main, *old_additions]) != _recipe_signature(expected_recipe_rows)
+                ):
+                    raise ProductionOrderError("原生產單的配方版本不同或資料不完整，請選擇建立新單。")
+            recipe_version = existing["recipe_version"]
+            snapshot_json = existing["recipe_snapshot_json"]
+            payload.pop("附加配方", None)
+            if "附加配方" in existing_payload:
+                payload["附加配方"] = existing_payload["附加配方"]
         version = 1 if existing is None else int(existing["version"]) + 1
         created_at = now if existing is None else existing["created_at"]
         persisted_values = (
@@ -180,11 +266,11 @@ def _save(config: DatabaseConfig, row: dict[str, Any], *, create: bool) -> dict[
                    SET production_date=?, recipe_id=?, color=?, customer_name=?,
                        payload_json=?, recipe_version=?, recipe_snapshot_json=?, source='app',
                        version=?, updated_at=?
-                   WHERE production_order_id=?""",
-                (*persisted_values, order_id),
+                   WHERE production_order_id=? AND version=?""",
+                (*persisted_values, order_id, existing["version"]),
             )
             if cursor.rowcount != 1:
-                raise ProductionOrderError(f"找不到生產單號 {order_id}")
+                raise ProductionOrderError(f"生產單 {order_id} 已變更，請重新載入。")
         conn.execute("DELETE FROM production_order_packages WHERE production_order_id=?", (order_id,))
         packages = []
         for position in range(1, 5):
@@ -206,8 +292,10 @@ def _save(config: DatabaseConfig, row: dict[str, Any], *, create: bool) -> dict[
     return payload
 
 
-def create_production_order(config: DatabaseConfig, row: dict[str, Any]) -> dict[str, str]:
-    return _save(config, row, create=True)
+def create_production_order(
+    config: DatabaseConfig, row: dict[str, Any], *, expected_recipe_rows: list[dict] | None = None,
+) -> dict[str, str]:
+    return _save(config, row, create=True, expected_recipe_rows=expected_recipe_rows)
 
 
 def update_production_order(
@@ -215,6 +303,7 @@ def update_production_order(
     row: dict[str, Any],
     *,
     original_order_id: str | None = None,
+    expected_recipe_rows: list[dict] | None = None,
 ) -> dict[str, str]:
     """Update an order without allowing its permanent ID to be replaced.
 
@@ -230,7 +319,7 @@ def update_production_order(
         if not original_order_id:
             raise ProductionOrderError("缺少原生產單號")
         updated_row["生產單號"] = original_order_id
-    return _save(config, updated_row, create=False)
+    return _save(config, updated_row, create=False, expected_recipe_rows=expected_recipe_rows)
 
 
 def upsert_production_order(config: DatabaseConfig, row: dict[str, Any]) -> dict[str, str]:
