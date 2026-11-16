@@ -233,6 +233,39 @@ def test_switching_production_views_keeps_draft_and_renders_only_the_active_pane
     assert created["備註"] == "Draft note"
 
 
+
+@pytest.mark.parametrize("save_key", ["save_production_create", "save_production_and_outsource"])
+def test_production_save_toasts_for_missing_package_fields(production_config, save_key):
+    from utils.outsourcing_repository import list_outsourcing_orders
+
+    create_recipe(production_config, {"配方編號": "MB100", "顏色": "Black", "色粉類別": "色母",
+                                      "配方類別": "原始配方", "計量單位": "kg"})
+    before_orders = list_production_orders(production_config)
+    before_outsourcing = list_outsourcing_orders(production_config)
+    app = workspace_app(production_config).run(timeout=30)
+    app.text_input(key="search_text_tab1").set_value("MB100").run()
+    if any(button.key == "recipe_code_review_keep" for button in app.button):
+        app.button(key="recipe_code_review_keep").click().run()
+    assert not app.exception and app.session_state["show_confirm_panel"]
+
+    app.button(key=save_key).click().run()
+    assert not app.exception
+    assert any("至少填寫一組包裝重量和份數" in toast.value for toast in app.get("toast"))
+
+    app.text_input(key="form_weight1_tab1").set_value("25")
+    app.text_input(key="form_count1_tab1").set_value("2")
+    app.text_input(key="form_weight2_tab1").set_value("10")
+    app.text_input(key="form_count3_tab1").set_value("3")
+    app.button(key=save_key).click().run()
+    assert not app.exception
+    assert any("第 2 組包裝缺少份數" in toast.value and "第 3 組包裝缺少重量" in toast.value
+               for toast in app.get("toast"))
+    assert app.text_input(key="form_weight2_tab1").value == "10"
+    assert app.text_input(key="form_count3_tab1").value == "3"
+    assert list_production_orders(production_config) == before_orders
+    assert list_outsourcing_orders(production_config) == before_outsourcing
+
+
 def test_manual_recipe_selection_opens_creation_without_another_add_click(production_config, monkeypatch):
     from utils import inventory_repository
 
