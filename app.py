@@ -6289,12 +6289,6 @@ def render_production_order_workspace():
         if "downloaded_html_tab1" not in st.session_state:
             st.session_state["downloaded_html_tab1"] = False
         
-        for i in range(1, 5):
-            if f"form_weight{i}_tab1" not in st.session_state:
-                st.session_state[f"form_weight{i}_tab1"] = ""
-            if f"form_count{i}_tab1" not in st.session_state:
-                st.session_state[f"form_count{i}_tab1"] = ""
-        
         # 初始化 Tab1 使用的 local 變數
         show_confirm_panel = st.session_state["show_confirm_panel"]
         order = st.session_state["new_order"]
@@ -6628,8 +6622,10 @@ def render_production_order_workspace():
             )
 
             stock_calculation_started_at = time.perf_counter()
+            stock_notice = st.container()
             if should_recalc_stock:
-                st.session_state["last_final_stock"] = calculate_current_stock()
+                with stock_notice:
+                    st.session_state["last_final_stock"] = calculate_current_stock()
                 st.session_state["stock_calc_time"] = now
             log_performance(
                 "production_stock_calculation",
@@ -6644,8 +6640,9 @@ def render_production_order_workspace():
                 order["備註"] = recipe_row.get("備註", "")
                 order["重要提醒"] = recipe_row.get("重要提醒", "")
                 order["合計類別"] = recipe_row.get("合計類別", "")
-                st.markdown("---")
-                st.markdown("<span style='font-size:20px; font-weight:bold;'>新增生產單詳情填寫</span>", unsafe_allow_html=True)
+            # Keep the layout above the package fields stable during widget reruns.
+            st.markdown("---")
+            st.markdown("<span style='font-size:20px; font-weight:bold;'>新增生產單詳情填寫</span>", unsafe_allow_html=True)
 
             recipe_is_colorant = recipe_row.get("色粉類別", "").strip() == "色母"
             if recipe_is_colorant:
@@ -6795,8 +6792,12 @@ def render_production_order_workspace():
                     w_cols = st.columns(4)
                     c_cols = st.columns(4)
                     for i in range(1, 5):
-                        w_cols[i - 1].text_input(f"包裝重量{i}", value=order.get(f"包裝重量{i}", ""), key=f"form_weight{i}_tab1")
-                        c_cols[i - 1].text_input(f"包裝份數{i}", value=order.get(f"包裝份數{i}", ""), key=f"form_count{i}_tab1")
+                        weight_key = f"form_weight{i}_tab1"
+                        count_key = f"form_count{i}_tab1"
+                        st.session_state.setdefault(weight_key, order.get(f"包裝重量{i}", ""))
+                        st.session_state.setdefault(count_key, order.get(f"包裝份數{i}", ""))
+                        w_cols[i - 1].text_input(f"包裝重量{i}", key=weight_key)
+                        c_cols[i - 1].text_input(f"包裝份數{i}", key=count_key)
             
                 st.markdown("###### 色粉用量（編號與重量）")
                 main_powders = []
