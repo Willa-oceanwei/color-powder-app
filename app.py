@@ -7122,7 +7122,8 @@ def render_production_order_workspace():
                                 DATABASE_CONFIG, order, expected_recipe_rows=all_recipes_for_check,
                             )
                         else:
-                            order["生產單號"] = generate_next_production_order_id()
+                            if not st.session_state.get("new_order_saved", False):
+                                order["生產單號"] = generate_next_production_order_id()
                             create_production_order(
                                 DATABASE_CONFIG, order, expected_recipe_rows=all_recipes_for_check,
                             )
