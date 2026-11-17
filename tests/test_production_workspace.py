@@ -199,6 +199,27 @@ def test_short_exact_recipe_search_prefers_full_id_and_keeps_draft_inputs(produc
     assert list_production_orders(production_config) == before
 
 
+def test_package_edits_keep_the_draft_layout_and_inputs(production_config):
+    app = workspace_app(production_config).run(timeout=30)
+    app.text_input(key="search_text_tab1").set_value("R002").run()
+    if any(button.key == "recipe_code_review_keep" for button in app.button):
+        app.button(key="recipe_code_review_keep").click().run()
+
+    def details_heading_index():
+        return next(i for i, item in enumerate(app.markdown) if "新增生產單詳情填寫" in item.value)
+
+    heading_index = details_heading_index()
+    app.text_input(key="form_weight1_tab1").set_value("25").run()
+    assert details_heading_index() == heading_index
+    app.text_input(key="form_count1_tab1").set_value("8").run()
+    app.text_input(key="form_weight1_tab1").set_value("20").run()
+
+    assert not app.exception
+    assert details_heading_index() == heading_index
+    assert app.text_input(key="form_weight1_tab1").value == "20"
+    assert app.text_input(key="form_count1_tab1").value == "8"
+
+
 def test_switching_production_views_keeps_draft_and_renders_only_the_active_panel(production_config):
     before = list_production_orders(production_config)
     app = workspace_app(production_config).run(timeout=30)
