@@ -209,15 +209,20 @@ def test_package_edits_keep_the_draft_layout_and_inputs(production_config):
         return next(i for i, item in enumerate(app.markdown) if "新增生產單詳情填寫" in item.value)
 
     heading_index = details_heading_index()
-    app.text_input(key="form_weight1_tab1").set_value("25").run()
+    before = list_production_orders(production_config)
+    app.text_input(key="form_weight1_tab1").set_value("25")
+    app.text_input(key="form_count1_tab1").set_value("8")
+    next(button for button in app.button if button.label == "暫存包裝").click().run()
+    assert list_production_orders(production_config) == before
     assert details_heading_index() == heading_index
-    app.text_input(key="form_count1_tab1").set_value("8").run()
-    app.text_input(key="form_weight1_tab1").set_value("20").run()
+    app.text_input(key="form_weight1_tab1").set_value("20")
+    next(button for button in app.button if button.label == "💾 僅儲存生產單").click().run()
 
     assert not app.exception
-    assert details_heading_index() == heading_index
     assert app.text_input(key="form_weight1_tab1").value == "20"
     assert app.text_input(key="form_count1_tab1").value == "8"
+    saved = next(row for row in list_production_orders(production_config) if row["配方編號"] == "R002")
+    assert (saved["包裝重量1"], saved["包裝份數1"]) == ("20", "8")
 
 
 def test_switching_production_views_keeps_draft_and_renders_only_the_active_panel(production_config):
@@ -228,7 +233,8 @@ def test_switching_production_views_keeps_draft_and_renders_only_the_active_pane
     if any(button.key == "recipe_code_review_keep" for button in app.button):
         app.button(key="recipe_code_review_keep").click().run()
     app.text_input(key="form_weight1_tab1").set_value("25")
-    app.text_area(key="form_remark_tab1").set_value("Draft note").run()
+    app.text_area(key="form_remark_tab1").set_value("Draft note")
+    next(button for button in app.button if button.label == "暫存包裝").click().run()
 
     app.radio(key="production_order_view").set_value("history").run()
     assert not app.exception and len(app.dataframe) == 1
@@ -246,8 +252,8 @@ def test_switching_production_views_keeps_draft_and_renders_only_the_active_pane
     assert list_production_orders(production_config) == before
 
     app.radio(key="production_order_view").set_value("create").run()
-    app.text_input(key="form_count1_tab1").set_value("2").run()
-    app.button(key="save_production_create").click().run()
+    app.text_input(key="form_count1_tab1").set_value("2")
+    next(button for button in app.button if button.label == "💾 僅儲存生產單").click().run()
     assert not app.exception
     created = next(row for row in list_production_orders(production_config) if row["配方編號"] == "R002")
     assert created["包裝重量1"] == "25" and created["包裝份數1"] == "2"
@@ -255,8 +261,8 @@ def test_switching_production_views_keeps_draft_and_renders_only_the_active_pane
 
 
 
-@pytest.mark.parametrize("save_key", ["save_production_create", "save_production_and_outsource"])
-def test_production_save_toasts_for_missing_package_fields(production_config, save_key):
+@pytest.mark.parametrize("save_label", ["💾 僅儲存生產單", "✅ 儲存並轉代工管理"])
+def test_production_save_toasts_for_missing_package_fields(production_config, save_label):
     from utils.outsourcing_repository import list_outsourcing_orders
 
     create_recipe(production_config, {"配方編號": "MB100", "顏色": "Black", "色粉類別": "色母",
@@ -269,7 +275,7 @@ def test_production_save_toasts_for_missing_package_fields(production_config, sa
         app.button(key="recipe_code_review_keep").click().run()
     assert not app.exception and app.session_state["show_confirm_panel"]
 
-    app.button(key=save_key).click().run()
+    next(button for button in app.button if button.label == save_label).click().run()
     assert not app.exception
     assert any("至少填寫一組包裝重量和份數" in toast.value for toast in app.get("toast"))
 
@@ -277,7 +283,7 @@ def test_production_save_toasts_for_missing_package_fields(production_config, sa
     app.text_input(key="form_count1_tab1").set_value("2")
     app.text_input(key="form_weight2_tab1").set_value("10")
     app.text_input(key="form_count3_tab1").set_value("3")
-    app.button(key=save_key).click().run()
+    next(button for button in app.button if button.label == save_label).click().run()
     assert not app.exception
     assert any("第 2 組包裝缺少份數" in toast.value and "第 3 組包裝缺少重量" in toast.value
                for toast in app.get("toast"))

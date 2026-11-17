@@ -234,6 +234,7 @@ def test_switching_recipe_clears_all_recipe_dependent_draft_widgets():
         "show_confirm_panel": False,
         "new_order_saved": False,
         "downloaded_html_tab1": False,
+        "production_package_form_revision": 1,
     }
 
 
@@ -261,6 +262,7 @@ def test_switching_recipe_after_save_discards_saved_package_fields_and_snapshot(
         "show_confirm_panel": False,
         "new_order_saved": False,
         "downloaded_html_tab1": False,
+        "production_package_form_revision": 1,
     }
 
 

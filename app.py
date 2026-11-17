@@ -2413,6 +2413,7 @@ def reset_production_order_draft_state(session_state, new_order_no, new_recipe_c
     # the newly-created widgets again from ``new_order`` (including its package
     # values) before the replacement recipe has become the active draft.
     session_state["new_order"] = None
+    session_state["production_package_form_revision"] = session_state.get("production_package_form_revision", 0) + 1
     session_state["show_confirm_panel"] = False
     session_state["downloaded_html_tab1"] = False
     session_state["new_order_saved"] = False
@@ -6393,26 +6394,17 @@ def render_production_order_workspace():
                 selected_label = None
 
         if selected_row is not None and len(option_map) == 1:
-            # 依當日最大流水號 +1 產生生產單號
-            # ⚠️ 但如果這張單這次已經存檔成功、選的配方也還是同一個，
-            # 就要沿用原本的單號，不能再重新算一次「下一號」。
-            # 不然存檔成功後，只要畫面又 rerun 一次（例如按下載 A5），
-            # Sheet 裡已經多了剛存的那筆，「下一號」就會往前推一號，
-            # 程式會誤判成「使用者又開了一張全新的單」，把已存檔的記號重設掉，
-            # 導致重複檢查又跑一次、抓到自己剛存的那筆，變成自己嚇自己。
-            _prev_order_for_id = st.session_state.get("new_order") or {}
-            if (
-                st.session_state.get("new_order_saved", False)
-                and str(_prev_order_for_id.get("配方編號", "")).strip()
-                    == str(selected_row.get("配方編號", "")).strip()
-            ):
-                new_id = _prev_order_for_id.get("生產單號", "") or generate_next_production_order_id()
+            # Keep the draft and its form mounted when editing the same recipe.
+            previous_order = st.session_state.get("new_order") or {}
+            selected_code = str(selected_row.get("配方編號", "")).strip()
+            if str(previous_order.get("配方編號", "")).strip() == selected_code:
+                new_id = previous_order.get("生產單號", "")
             else:
+                new_id = ""
+            if not new_id:
                 new_id = generate_next_production_order_id()
-            reset_order_draft_state_if_new(
-                new_id, selected_row.get("配方編號", "")
-            )
-        
+                reset_order_draft_state_if_new(new_id, selected_code)
+
             order = {
                 "生產單號": new_id,
                 "生產日期": datetime.now().strftime("%Y-%m-%d"),
@@ -6787,59 +6779,59 @@ def render_production_order_workspace():
                     key="form_remark_tab1"
                 )
             
-                with st.container(border=True):
-                    st.markdown("**📦 包裝重量與份數**")
-                    w_cols = st.columns(4)
-                    c_cols = st.columns(4)
-                    for i in range(1, 5):
-                        weight_key = f"form_weight{i}_tab1"
-                        count_key = f"form_count{i}_tab1"
-                        st.session_state.setdefault(weight_key, order.get(f"包裝重量{i}", ""))
-                        st.session_state.setdefault(count_key, order.get(f"包裝份數{i}", ""))
-                        w_cols[i - 1].text_input(f"包裝重量{i}", key=weight_key)
-                        c_cols[i - 1].text_input(f"包裝份數{i}", key=count_key)
-            
-                st.markdown("###### 色粉用量（編號與重量）")
-                main_powders = []
-                for i in range(1, 9):
-                    color_id = recipe_row.get(f"色粉編號{i}", "").strip()
-                    color_wt = recipe_row.get(f"色粉重量{i}", "").strip()
-                    if color_id or color_wt:
-                        main_powders.append((i, color_id, color_wt))
-                if main_powders:
-                    powder_cols = st.columns(len(main_powders))
-                    for col, (i, color_id, color_wt) in zip(powder_cols, main_powders):
-                        col.text_input(f"色粉編號{i}", value=color_id, disabled=True, key=f"form_main_color_id_{i}_tab1")
-                        col.text_input(f"色粉重量{i}", value=color_wt, disabled=True, key=f"form_main_color_weight_{i}_tab1")
-            
-                additional_recipes = order.get("附加配方", [])
-                if additional_recipes:
-                    st.markdown("###### 附加配方色粉用量（編號與重量）")
-                    for idx, r in enumerate(additional_recipes, 1):
-                        st.markdown(f"附加配方 {idx}")
-                        add_powders = []
-                        for i in range(1, 9):
-                            color_id = r.get(f"色粉編號{i}", "").strip()
-                            color_wt = r.get(f"色粉重量{i}", "").strip()
-                            if color_id or color_wt:
-                                add_powders.append((i, color_id, color_wt))
-                        if add_powders:
-                            add_cols = st.columns(len(add_powders))
-                            for col, (i, color_id, color_wt) in zip(add_cols, add_powders):
-                                col.text_input(f"附加色粉編號_{idx}_{i}", value=color_id, disabled=True, key=f"form_add_color_id_{idx}_{i}_tab1")
-                                col.text_input(f"附加色粉重量_{idx}_{i}", value=color_wt, disabled=True, key=f"form_add_color_wt_{idx}_{i}_tab1")
-            
-                col_submit1, col_submit2 = st.columns([1, 1])
-                with col_submit1:
-                    submitted = st.button("💾 僅儲存生產單", key="save_production_create")
-            
-                is_colorant = recipe_is_colorant
-                with col_submit2:
-                    if is_colorant:
-                        continue_to_oem = st.button("✅ 儲存並轉代工管理", key="save_production_and_outsource")
-                    else:
-                        continue_to_oem = False
+                form_revision = st.session_state.get("production_package_form_revision", 0)
+                with st.form(f"production_packages_{form_revision}", enter_to_submit=False, border=False):
+                    with st.container(border=True):
+                        st.markdown("**📦 包裝重量與份數**")
+                        w_cols = st.columns(4)
+                        c_cols = st.columns(4)
+                        for i in range(1, 5):
+                            weight_key = f"form_weight{i}_tab1"
+                            count_key = f"form_count{i}_tab1"
+                            st.session_state.setdefault(weight_key, order.get(f"包裝重量{i}", ""))
+                            st.session_state.setdefault(count_key, order.get(f"包裝份數{i}", ""))
+                            w_cols[i - 1].text_input(f"包裝重量{i}", key=weight_key)
+                            c_cols[i - 1].text_input(f"包裝份數{i}", key=count_key)
 
+                    st.markdown("###### 色粉用量（編號與重量）")
+                    main_powders = []
+                    for i in range(1, 9):
+                        color_id = recipe_row.get(f"色粉編號{i}", "").strip()
+                        color_wt = recipe_row.get(f"色粉重量{i}", "").strip()
+                        if color_id or color_wt:
+                            main_powders.append((i, color_id, color_wt))
+                    if main_powders:
+                        powder_cols = st.columns(len(main_powders))
+                        for col, (i, color_id, color_wt) in zip(powder_cols, main_powders):
+                            col.text_input(f"色粉編號{i}", value=color_id, disabled=True, key=f"form_main_color_id_{i}_tab1")
+                            col.text_input(f"色粉重量{i}", value=color_wt, disabled=True, key=f"form_main_color_weight_{i}_tab1")
+
+                    additional_recipes = order.get("附加配方", [])
+                    if additional_recipes:
+                        st.markdown("###### 附加配方色粉用量（編號與重量）")
+                        for idx, r in enumerate(additional_recipes, 1):
+                            st.markdown(f"附加配方 {idx}")
+                            add_powders = []
+                            for i in range(1, 9):
+                                color_id = r.get(f"色粉編號{i}", "").strip()
+                                color_wt = r.get(f"色粉重量{i}", "").strip()
+                                if color_id or color_wt:
+                                    add_powders.append((i, color_id, color_wt))
+                            if add_powders:
+                                add_cols = st.columns(len(add_powders))
+                                for col, (i, color_id, color_wt) in zip(add_cols, add_powders):
+                                    col.text_input(f"附加色粉編號_{idx}_{i}", value=color_id, disabled=True, key=f"form_add_color_id_{idx}_{i}_tab1")
+                                    col.text_input(f"附加色粉重量_{idx}_{i}", value=color_wt, disabled=True, key=f"form_add_color_wt_{idx}_{i}_tab1")
+
+                    save_col, oem_col, draft_col = st.columns(3)
+                    submitted = save_col.form_submit_button("💾 僅儲存生產單")
+                    continue_to_oem = recipe_is_colorant and oem_col.form_submit_button("✅ 儲存並轉代工管理")
+                    draft_committed = draft_col.form_submit_button("暫存包裝", help="切換分頁前可暫存重量和份數")
+
+                if draft_committed:
+                    st.toast("已暫存包裝重量和份數。")
+
+                is_colorant = recipe_is_colorant
                 if submitted or continue_to_oem:
             
                     packages = [
@@ -7130,9 +7122,12 @@ def render_production_order_workspace():
                                 DATABASE_CONFIG, order, expected_recipe_rows=all_recipes_for_check,
                             )
                         else:
+                            if not st.session_state.get("new_order_saved", False):
+                                order["生產單號"] = generate_next_production_order_id()
                             create_production_order(
                                 DATABASE_CONFIG, order, expected_recipe_rows=all_recipes_for_check,
                             )
+                        st.session_state.new_order = order
                         st.session_state["last_final_stock"] = last_stock
                         st.session_state.new_order_saved = True
                         st.session_state["saved_label_snapshot"] = {
