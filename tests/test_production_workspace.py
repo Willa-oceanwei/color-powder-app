@@ -84,7 +84,10 @@ def list_outsourcing_orders(*a, **kw):
     return original_outsourcing(*a, **kw)
 def render_selection_table(frame, records, **kwargs):
     st.dataframe(frame)
-    if kwargs['key'] == 'production_manage':
+    if kwargs['key'].startswith('production_manage'):
+        manual_id = st.session_state.get('qa_selected_manage_id')
+        if manual_id:
+            return next((record for record in records if record['生產單號'] == manual_id), None)
         return records[0] if records and not st.session_state.get('qa_drop_manage_selection') else None
     if kwargs['key'] == 'production_history' and not st.session_state.get('qa_drop_selection'):
         return records[0] if records else None
@@ -96,6 +99,40 @@ render_production_order_workspace()
 ''')
     app.session_state['production_order_view'] = view
     return app
+
+
+def test_number_search_previews_first_order_then_allows_manual_selection(production_config):
+    create_production_order(production_config, {
+        "生產單號": "P002", "配方編號": "R001", "生產日期": "2026-10-20",
+        "建立時間": "2026-10-20 12:00:00", "顏色": "Blue", "客戶名稱": "Customer",
+        "包裝重量1": "1", "包裝份數1": "2",
+    })
+    app = workspace_app(production_config, "manage")
+    app.session_state["qa_drop_manage_selection"] = True
+    app.run(timeout=30)
+
+    app.text_input(key="search_order_input_tab3").set_value("Blue")
+    app.button(key="search_production_manage").click().run()
+    assert not any("預設預覽" in caption.value for caption in app.caption)
+
+    app.text_input(key="search_order_input_tab3").set_value("R001")
+    app.button(key="search_production_manage").click().run()
+    assert not app.exception
+    assert app.session_state["selected_order_no_tab3"] == "P002"
+    assert any("預設預覽 · P002" in caption.value for caption in app.caption)
+    assert app.button(key="edit_order_btn_tab3")
+
+    app.session_state["qa_selected_manage_id"] = "P001"
+    app.run()
+    assert app.session_state["selected_order_no_tab3"] == "P001"
+    assert any("已選取 · P001" in caption.value for caption in app.caption)
+
+    app.session_state["qa_selected_manage_id"] = None
+    app.text_input(key="search_order_input_tab3").set_value("P001")
+    app.button(key="search_production_manage").click().run()
+    assert not app.exception
+    assert app.session_state["selected_order_no_tab3"] == "P001"
+    assert any("預設預覽 · P001" in caption.value for caption in app.caption)
 
 
 def test_saving_edit_refreshes_records_without_restarting_main_app(production_config, monkeypatch):
