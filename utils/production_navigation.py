@@ -17,7 +17,10 @@ def retain_production_widgets(state, active_view):
             marker in key for marker in ("_label_kind_", "_label_paper_", "_choose_positions_", "_position_")
         ):
             view = {"tab1": "create", "tab2": "history", "tab3": "manage"}[key[:4]]
-        elif key.startswith(("merge_radio_", "show_big_label_", "print_mode_")) or key in (
+        elif key.startswith((
+            "merge_radio_", "show_big_label_", "print_mode_",
+            "search_text_tab1_", "search_add_form_selected_recipe_tab1_",
+        )) or key in (
             "search_text_tab1", "search_add_form_selected_recipe_tab1", "show_ids_tab1",
         ) or (key.startswith("form_") and key.endswith("_tab1")):
             view = "create"
