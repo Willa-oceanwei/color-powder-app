@@ -195,10 +195,13 @@ def test_clear_creation_draft_preserves_saved_orders(production_config, saved):
     app.session_state['saved_label_snapshot'] = {'old': True}
     app.session_state['merge_decision_R002_sameday'] = 'merge'
     before = list_production_orders(production_config)
+    previous_form_revision = app.session_state['production_package_form_revision']
     app.button(key='clear_production_draft_tab1').click().run()
     assert not app.exception
-    assert app.text_input(key='search_text_tab1').value == ''
-    assert app.selectbox(key='search_add_form_selected_recipe_tab1').value == '請選擇'
+    assert any('已清空生產單草稿' in toast.value for toast in app.get('toast'))
+    assert app.session_state['production_package_form_revision'] == previous_form_revision + 1
+    assert app.text_input(key='search_text_tab1_1').value == ''
+    assert app.selectbox(key='search_add_form_selected_recipe_tab1_1').value == '請選擇'
     assert not app.session_state['show_confirm_panel']
     assert not app.session_state['new_order_saved']
     assert not app.session_state['downloaded_html_tab1']
@@ -206,7 +209,7 @@ def test_clear_creation_draft_preserves_saved_orders(production_config, saved):
     assert 'merge_decision_R002_sameday' not in app.session_state
     assert not any(b.label == '💾 僅儲存生產單' for b in app.button)
     assert list_production_orders(production_config) == before
-    app.text_input(key='search_text_tab1').set_value('R002').run()
+    app.text_input(key='search_text_tab1_1').set_value('R002').run()
     if any(b.key == 'recipe_code_review_keep' for b in app.button):
         app.button(key='recipe_code_review_keep').click().run()
     assert not app.exception and app.session_state['show_confirm_panel']

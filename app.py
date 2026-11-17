@@ -6228,6 +6228,19 @@ def render_production_order_workspace():
           const previousObserver = window.parent.__productionTabObserver;
           if (previousObserver) previousObserver.disconnect();
 
+          // A pointer click on Clear should discard the current field instead
+          // of committing it on blur and starting a competing widget rerun.
+          const parentWindow = window.parent;
+          if (!parentWindow.__productionClearPointerBound) {
+            parentWindow.document.addEventListener("pointerdown", event => {
+              if (event.button === 0 && event.target instanceof parentWindow.Element
+                  && event.target.closest(".st-key-clear_production_draft_tab1 button:not(:disabled)")) {
+                event.preventDefault();
+              }
+            }, true);
+            parentWindow.__productionClearPointerBound = true;
+          }
+
           function bindTabGroup(storageKey, tabTexts) {
             const doc = window.parent.document;
             const tablists = Array.from(doc.querySelectorAll('div[role="tablist"]'));
@@ -6298,29 +6311,39 @@ def render_production_order_workspace():
         # ⚠️ 這裡故意不用 st.form：表單裡的欄位要等「送出」才會生效，
         # 之前搜尋框包在表單裡，換配方編號打完字後下面的結果不會馬上更新，
         # 一定要按 Enter/新增或重新整理才會生效，改成一般元件後打完就會立刻反應。
+        clear_revision = st.session_state.get("production_draft_clear_revision", 0)
+        search_suffix = f"_{clear_revision}" if clear_revision else ""
+        search_text_key = f"search_text_tab1{search_suffix}"
+        recipe_picker_key = f"search_add_form_selected_recipe_tab1{search_suffix}"
+
         def clear_production_draft():
-            # Button callbacks run before widgets, so their state can be reset safely.
             draft = st.session_state.get("new_order") or {}
             clear_production_merge_cache(draft.get("配方編號", ""))
             reset_production_order_draft_state(st.session_state, "", "", force=True)
-            st.session_state["search_text_tab1"] = ""
-            st.session_state["search_add_form_selected_recipe_tab1"] = "請選擇"
+            # The browser may still have uncommitted text from the old draft.
+            st.session_state.pop(search_text_key, None)
+            st.session_state.pop(recipe_picker_key, None)
+            st.session_state["production_draft_clear_revision"] = clear_revision + 1
             st.session_state["production_draft_cleared"] = True
 
-        col1, col2, clear_col, _ = st.columns([3, 1, 0.5, 8], vertical_alignment="center")
+        col1, col2, clear_col, _ = st.columns([3, 1, 1, 7.5], vertical_alignment="center")
 
         with col1:
             search_text_tab1 = st.text_input(
                 label="搜尋配方",
                 label_visibility="collapsed",
                 placeholder="🔎 多條件搜尋：配方編號, 客戶名稱, 顏色",
-                key="search_text_tab1"
+                key=search_text_key
             )
 
         with col2:
             add_btn = st.button("➕ 新增", key="search_add_btn_tab1")
-        clear_col.button("↺", key="clear_production_draft_tab1", on_click=clear_production_draft,
-                         help="清空目前輸入與配方選取，開始下一張生產單（已儲存資料會保留）")
+        cleared = clear_col.button(
+            "↺ 清空", key="clear_production_draft_tab1", on_click=clear_production_draft,
+            help="清空目前輸入與配方選取，開始下一張生產單（已儲存資料會保留）",
+        )
+        if cleared:
+            st.toast("已清空生產單草稿。")
         
         # ===== 關鍵字拆分 =====
         keywords = split_search_keywords(search_text_tab1)
@@ -6360,7 +6383,7 @@ def render_production_order_workspace():
                 "選擇配方",
                 ["請選擇"] + list(option_map),
                 index=0,
-                key="search_add_form_selected_recipe_tab1"
+                key=recipe_picker_key
             )
 
         selected_row = None
@@ -6370,8 +6393,8 @@ def render_production_order_workspace():
 
         def renamed_recipe_for_new_order(code):
             reset_production_order_draft_state(st.session_state, "", "", force=True)
-            st.session_state["search_text_tab1"] = code
-            st.session_state["search_add_form_selected_recipe_tab1"] = "請選擇"
+            st.session_state[search_text_key] = code
+            st.session_state[recipe_picker_key] = "請選擇"
             st.session_state["production_data_loaded"] = False
             st.session_state["recipe_data_loaded"] = False
             st.session_state["oem_data_loaded"] = False
