@@ -7541,6 +7541,10 @@ def render_production_order_workspace():
             
             submit_search = st.button("🔍 搜尋", key="search_production_manage")
     
+        preview_first_order = False
+        if submit_search:
+            st.session_state.pop("production_manage_default_order_id", None)
+
         # ===== 只有按下搜尋才執行篩選 =====
         if submit_search or st.session_state.get("last_search_tab3_done", False):
 
@@ -7594,6 +7598,26 @@ def render_production_order_workspace():
                 df_filtered_tab3["建立時間"] = pd.to_datetime(df_filtered_tab3["建立時間"], errors="coerce")
                 df_filtered_tab3 = df_filtered_tab3.sort_values(by="建立時間", ascending=False)
     
+            if submit_search and not df_filtered_tab3.empty:
+                search_code = search_order.strip().casefold()
+                preview_first_order = bool(search_code) and any(
+                    df_filtered_tab3[column].astype(str).str.strip().str.casefold().eq(search_code).any()
+                    for column in ("生產單號", "配方編號")
+                    if column in df_filtered_tab3.columns
+                )
+                if preview_first_order:
+                    revision = st.session_state.get("production_manage_table_revision", 0)
+                    old_table_key = f"production_manage_{revision}" if revision else "production_manage"
+                    st.session_state.pop(f"{old_table_key}_retained_selection", None)
+                    st.session_state["production_manage_table_revision"] = revision + 1
+                    st.session_state["tab3_page_number"] = 1
+                    st.session_state["production_manage_default_order_id"] = str(
+                        df_filtered_tab3.iloc[0]["生產單號"]
+                    )
+                    st.session_state.pop("production_manage_saved_order_id", None)
+                    st.session_state.pop("confirm_order_lifecycle_id", None)
+                    clear_production_order_edit_state(st.session_state)
+
             # ===== 📊 顯示搜尋結果表格（新增回來）=====
             selected_order = None
             if not df_filtered_tab3.empty:
@@ -7623,21 +7647,32 @@ def render_production_order_workspace():
                 existing_cols = [c for c in display_cols if c in df_page.columns]
                 if not df_page.empty and existing_cols:
                     table_height = min(400, 38 * (len(df_page) + 1) + 3)
+                    page_orders = df_page.to_dict("records")
+                    revision = st.session_state.get("production_manage_table_revision", 0)
+                    table_key = f"production_manage_{revision}" if revision else "production_manage"
                     chosen_order = render_selection_table(
                         customer_display.frame(df_page[existing_cols].reset_index(drop=True)),
-                        df_page.to_dict("records"), key="production_manage", id_field="生產單號", retain_selection=True,
-                        height=table_height,
+                        page_orders, key=table_key, id_field="生產單號", auto_single=False,
+                        retain_selection=True, height=table_height,
                     )
                     saved_order_id = st.session_state.get("production_manage_saved_order_id")
-                    if chosen_order is None and saved_order_id:
-                        chosen_order = next((row for row in df_page.to_dict("records")
-                                             if str(row["生產單號"]) == saved_order_id), None)
-                    elif chosen_order is not None and str(chosen_order["生產單號"]) != saved_order_id:
-                        st.session_state.pop("production_manage_saved_order_id", None)
+                    default_order_id = st.session_state.get("production_manage_default_order_id")
+                    selection_label = "已選取"
+                    if chosen_order is not None:
+                        st.session_state.pop("production_manage_default_order_id", None)
+                        if str(chosen_order["生產單號"]) != saved_order_id:
+                            st.session_state.pop("production_manage_saved_order_id", None)
+                    else:
+                        target_id = saved_order_id or default_order_id
+                        if target_id:
+                            chosen_order = next((row for row in page_orders if str(row["生產單號"]) == target_id), None)
+                            if chosen_order is not None and not saved_order_id:
+                                selection_label = "預設預覽"
+                        if chosen_order is None and len(page_orders) == 1:
+                            chosen_order = page_orders[0]
                     if chosen_order is not None:
                         selected_order = pd.Series(chosen_order)
-                        selected_code_edit = chosen_order["生產單號"]
-                        st.caption(f"已選取 · {selected_code_edit}")
+                        st.caption(f"{selection_label} · {chosen_order['生產單號']}")
                     else:
                         st.caption("勾選表格左側的資料列，即可預覽或修改。")
 
@@ -7669,7 +7704,18 @@ def render_production_order_workspace():
     
             with st.container(key="production_order_details"):
                 preview_tab, manage_tab = st.tabs(["👀 預覽", "🛠️ 修改 / 取消"])
-    
+                if preview_first_order:
+                    components.html(
+                        """<script>
+                        const parentWindow = window.parent;
+                        parentWindow.sessionStorage.setItem("order_mgmt_detail_tab", "0");
+                        parentWindow.document.querySelector(
+                          '.st-key-production_order_details [role="tablist"] button[role="tab"]'
+                        )?.click();
+                        </script>""",
+                        height=0, width=0,
+                    )
+
             with preview_tab:
                 head_col, opt_col, download_col = st.columns([5, 2, 2])
                 with head_col:
