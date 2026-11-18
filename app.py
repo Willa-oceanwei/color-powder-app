@@ -7773,9 +7773,25 @@ def render_production_order_workspace():
                 if show_labels:
                     render_big_label_editor(order_dict, key_prefix="tab3")
 
-                st.caption("可直接按下方「列印 A5」；原有 A5 下載功能保留。")
-                components.html(build_production_order_preview(preview_a5_data.decode("utf-8")),
-                                height=430, scrolling=False)
+                historical = None
+                if not production_order_recipe_rows(order_dict)[0]:
+                    from utils.production_order_history_preview import (
+                        load_production_order_history_preview, render_production_order_history_preview,
+                    )
+
+                    historical = load_production_order_history_preview(DATABASE_CONFIG, current_order_no)
+                if historical:
+                    st.caption(historical["source"])
+                    components.html(
+                        render_production_order_history_preview(
+                            historical, generate_print_page_content, show_additional_ids=show_ids,
+                        ),
+                        height=430, scrolling=True,
+                    )
+                else:
+                    st.caption("可直接按下方「列印 A5」；原有 A5 下載功能保留。")
+                    components.html(build_production_order_preview(preview_a5_data.decode("utf-8")),
+                                    height=430, scrolling=False)
 
             with manage_tab:
                 is_cancelled = order_dict.get("取消狀態", "有效") == "已取消"

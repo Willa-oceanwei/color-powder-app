@@ -1,4 +1,5 @@
 import ast
+import json
 from pathlib import Path
 
 import pytest
@@ -6,7 +7,7 @@ from streamlit.testing.v1 import AppTest
 from streamlit.runtime.scriptrunner import ScriptRunnerEvent
 from streamlit.testing.v1.local_script_runner import LocalScriptRunner
 
-from utils.database import DatabaseConfig, initialize_database
+from utils.database import DatabaseConfig, connect_from_config, initialize_database
 from utils.production_order_repository import create_production_order, list_production_orders
 from utils.recipe_repository import create_recipe
 from test_workspace_performance import queue_updates
@@ -99,6 +100,31 @@ render_production_order_workspace()
 ''')
     app.session_state['production_order_view'] = view
     return app
+
+
+def test_verified_historical_preview_is_display_only(production_config):
+    evidence = {
+        "order": {"生產單號": "P001", "配方編號": "R001", "顏色": "Historical"},
+        "recipe": {"配方編號": "R001", "色粉編號1": "ARCHIVED-POWDER", "色粉重量1": "1"},
+        "additional_recipes": [],
+        "source": "歷史版本 2026-10-19 09:00",
+    }
+    with connect_from_config(production_config) as conn:
+        conn.execute("UPDATE production_orders SET recipe_snapshot_json=NULL WHERE production_order_id='P001'")
+        conn.execute(
+            "INSERT INTO production_order_history_previews VALUES (?, ?, ?)",
+            ("P001", json.dumps(evidence), "2026-11-18"),
+        )
+    app = workspace_app(production_config, "manage").run(timeout=30)
+    assert not app.exception
+    assert any(evidence["source"] in item.value for item in app.caption)
+    documents = [item.proto.srcdoc for item in app.get("iframe")]
+    archive = next(document for document in documents if "ARCHIVED-POWDER" in document)
+    assert "歷史查閱副本" in archive
+    assert "window.print" not in archive
+    saved = list_production_orders(production_config, include_recipe_snapshot=True)[0]
+    assert saved["顏色"] == "Blue"
+    assert not saved["_recipe_snapshot_json"]
 
 
 def test_number_search_previews_first_order_then_allows_manual_selection(production_config):

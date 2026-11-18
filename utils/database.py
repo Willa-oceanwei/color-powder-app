@@ -24,7 +24,7 @@ from typing import Any, Protocol
 from .read_cache import invalidate_read_cache
 
 DEFAULT_DB_PATH = Path("data/colorpowder.db")
-SCHEMA_VERSION = 34
+SCHEMA_VERSION = 35
 LOGGER = logging.getLogger(__name__)
 MAIN_TABLES = {
     "recipe_code_reviews",
@@ -48,6 +48,7 @@ MAIN_TABLES = {
     "recipe_components",
     "production_orders",
     "production_order_packages",
+    "production_order_history_previews",
     "outsourcing_orders",
     "outsourcing_deliveries",
     "outsourcing_returns",
@@ -409,6 +410,15 @@ CREATE TABLE IF NOT EXISTS recipe_code_reviews (
 """
 
 
+PRODUCTION_ORDER_HISTORY_PREVIEW_SCHEMA = """
+CREATE TABLE IF NOT EXISTS production_order_history_previews (
+    production_order_id TEXT NOT NULL PRIMARY KEY REFERENCES production_orders(production_order_id),
+    evidence_json TEXT NOT NULL CHECK(json_valid(evidence_json)),
+    verified_at TEXT NOT NULL
+);
+"""
+
+
 def _initialize_schema(conn: SqlExecutor) -> None:
     """Create/validate the current schema on an open SQLite-compatible connection."""
     # Metadata-only upgrades must not rerun old business-data backfills.
@@ -418,9 +428,9 @@ def _initialize_schema(conn: SqlExecutor) -> None:
         if not _is_missing_schema_migrations_error(exc):
             raise
         health = None
-    metadata_tables = CARWASH_MERGE_TABLES | {"recipe_code_reviews"}
+    metadata_tables = CARWASH_MERGE_TABLES | {"recipe_code_reviews", "production_order_history_previews"}
     if (health is not None
-            and (health.schema_version in (32, 33)
+            and (health.schema_version in (32, 33, 34)
                  or (health.schema_version == SCHEMA_VERSION
                      and not metadata_tables.issubset(health.existing_tables)))
             and (MAIN_TABLES - metadata_tables).issubset(health.existing_tables)
@@ -428,6 +438,7 @@ def _initialize_schema(conn: SqlExecutor) -> None:
                      if table not in metadata_tables}):
         _execute_script(conn, CARWASH_MERGE_SCHEMA)
         _execute_script(conn, RECIPE_CODE_REVIEW_SCHEMA)
+        _execute_script(conn, PRODUCTION_ORDER_HISTORY_PREVIEW_SCHEMA)
         conn.execute("INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES (?, ?)",
                      (SCHEMA_VERSION, utc_now_iso()))
         return
@@ -1167,6 +1178,7 @@ def _initialize_schema(conn: SqlExecutor) -> None:
     conn.execute("UPDATE sheet_rows SET last_seen_at = COALESCE(last_seen_at, updated_at, ?) WHERE last_seen_at IS NULL", (utc_now_iso(),))
     _execute_script(conn, CARWASH_MERGE_SCHEMA)
     _execute_script(conn, RECIPE_CODE_REVIEW_SCHEMA)
+    _execute_script(conn, PRODUCTION_ORDER_HISTORY_PREVIEW_SCHEMA)
     conn.execute(
         "INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES (?, ?)",
         (SCHEMA_VERSION, utc_now_iso()),
