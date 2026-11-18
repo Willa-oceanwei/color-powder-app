@@ -7,6 +7,7 @@ from utils.production_order_repository import (
     list_production_orders,
     set_production_order_cancelled,
 )
+from utils.recipe_repository import create_recipe
 
 
 @pytest.fixture
@@ -14,7 +15,8 @@ def config(tmp_path):
     path = tmp_path / "lifecycle.db"
     initialize_database(path)
     config = DatabaseConfig(backend="sqlite", path=path)
-    create_production_order(config, {"生產單號": "P1"})
+    create_recipe(config, {"配方編號": "SAME"})
+    create_production_order(config, {"生產單號": "P1", "配方編號": "SAME"})
     for order_id, production_id in (("A", "P1"), ("B", "P1"), ("C", "P2"), ("D", "P1")):
         oem.create_outsourcing_order(config, {
             "代工單號": order_id, "生產單號": production_id,

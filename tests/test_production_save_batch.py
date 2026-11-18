@@ -4,13 +4,15 @@ import pytest
 
 from utils import production_order_repository as repository
 from utils.database import DatabaseConfig, initialize_database
+from utils.recipe_repository import create_recipe
 
 
 @pytest.mark.parametrize("positions", [[], [1], [1, 2, 3, 4], [2, 4]])
 def test_packages_use_one_insert_and_preserve_empty_slots_and_permanent_id(tmp_path, monkeypatch, positions):
     config = DatabaseConfig("sqlite", tmp_path / "packages.db")
     initialize_database(config.path)
-    row = {"生產單號": "P001", "生產日期": "2026-11-03"}
+    create_recipe(config, {"配方編號": "R001"})
+    row = {"生產單號": "P001", "生產日期": "2026-11-03", "配方編號": "R001"}
     for i in positions:
         row[f"包裝重量{i}"] = str(i * 10)
         row[f"包裝份數{i}"] = str(i)
