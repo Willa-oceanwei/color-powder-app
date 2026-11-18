@@ -94,9 +94,9 @@ def merge_production_order_packages(
     return merged
 
 
-def _recipe_snapshot(conn, recipe_id: str) -> tuple[int | None, str | None]:
+def _recipe_snapshot(conn, recipe_id: str) -> tuple[int, str]:
     if not recipe_id:
-        return None, None
+        raise ProductionOrderError("建立生產單前必須選擇配方。")
     rows = _mappings(conn.execute(
         """SELECT r.*, c.position AS component_position, c.colorpowder_id AS component_id,
                   c.weight AS component_weight
@@ -217,9 +217,11 @@ def _save(
             raise ProductionOrderError("已取消的生產單不可修改；請先恢復生產單")
         if create or expected_recipe_rows is not None:
             recipe_version, snapshot_json = _recipe_snapshot(conn, recipe_id)
+            main, additions = production_order_recipe_rows({"_recipe_snapshot_json": snapshot_json})
+            if not main or additions is None:
+                raise ProductionOrderError("無法保存完整的生產單配方副本，請重新載入配方。")
             if expected_recipe_rows is not None:
-                main, additions = production_order_recipe_rows({"_recipe_snapshot_json": snapshot_json})
-                if _recipe_signature([main, *(additions or [])]) != _recipe_signature(expected_recipe_rows):
+                if _recipe_signature([main, *additions]) != _recipe_signature(expected_recipe_rows):
                     raise ProductionOrderError("配方已更新，請重新載入配方後再建立生產單。")
         if existing is not None:
             existing_payload = json.loads(existing["payload_json"])

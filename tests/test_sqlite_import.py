@@ -873,15 +873,16 @@ def test_production_order_edit_keeps_original_order_id(tmp_path):
     db = tmp_path / "production-order-edit.db"
     initialize_database(db)
     config = DatabaseConfig(backend="sqlite", path=db)
+    create_recipe(config, {"配方編號": "R001"})
     create_production_order(config, {
-        "生產單號": "O001", "生產日期": "2026-08-17", "顏色": "Red",
+        "生產單號": "O001", "生產日期": "2026-08-17", "配方編號": "R001", "顏色": "Red",
         "包裝重量1": "10", "包裝份數1": "2",
     })
 
     updated = update_production_order(
         config,
         {
-            "生產單號": "O999", "生產日期": "2026-08-17", "顏色": "Blue",
+            "生產單號": "O999", "生產日期": "2026-08-17", "配方編號": "R001", "顏色": "Blue",
             "包裝重量1": "20", "包裝份數1": "3",
         },
         original_order_id="O001",
@@ -959,7 +960,8 @@ def test_production_order_cancel_requires_reason(tmp_path):
     db = tmp_path / "production-cancel-reason.db"
     initialize_database(db)
     config = DatabaseConfig(backend="sqlite", path=db)
-    create_production_order(config, {"生產單號": "O001", "生產日期": "2026-08-17"})
+    create_recipe(config, {"配方編號": "R001"})
+    create_production_order(config, {"生產單號": "O001", "生產日期": "2026-08-17", "配方編號": "R001"})
 
     with pytest.raises(ProductionOrderError, match="取消原因"):
         set_production_order_cancelled(config, "O001", cancelled=True, reason="")
@@ -976,7 +978,8 @@ def test_cancelled_order_and_reversed_inventory_are_removed_from_sheet(tmp_path)
         "類型": "進貨", "色粉編號": "P001", "日期": "2026/08/17",
         "數量": 5, "單位": "kg", "_sync_id": "INV001",
     })
-    create_production_order(config, {"生產單號": "O001", "生產日期": "2026-08-17"})
+    create_recipe(config, {"配方編號": "R001"})
+    create_production_order(config, {"生產單號": "O001", "生產日期": "2026-08-17", "配方編號": "R001"})
     inventory_ws = WritableWorksheet()
     inventory_header = ["類型", "色粉編號", "日期", "數量", "單位", "備註", "廠商編號", "廠商名稱", "_sync_id"]
     order_ws = WritableWorksheet()
@@ -1131,7 +1134,7 @@ def test_schema_v7_backfills_production_orders_and_packages_from_baseline(tmp_pa
     assert (package["package_weight"], package["package_count"]) == (2, 3)
 
 
-def test_production_order_sheet_increment_imports_new_order_after_baseline(tmp_path):
+def test_production_order_sheet_update_preserves_snapshot_and_cannot_create_order(tmp_path):
     db = tmp_path / "production-increment.db"
     initialize_database(db)
     config = DatabaseConfig(backend="sqlite", path=db)
@@ -1140,19 +1143,33 @@ def test_production_order_sheet_increment_imports_new_order_after_baseline(tmp_p
     headers = [
         "生產單號", "生產日期", "配方編號", "顏色", "客戶名稱", "包裝重量1", "包裝份數1",
     ]
-    baseline = [headers, ["O001", "2026-08-16", "R001", "Red", "Customer", "1", "2"]]
-    import_sheet_values("生產單", baseline, db_path=db, abort_on_issues=True)
+    with pytest.raises(ProductionOrderError, match="必須選擇配方"):
+        create_production_order(config, {"生產單號": "O001"})
+    create_production_order(config, dict(zip(headers, ["O001", "2026-08-16", "R001", "Red", "Customer", "1", "2"])))
+    snapshot = list_production_orders(config, include_recipe_snapshot=True)[0]["_recipe_snapshot_json"]
+    assert json.loads(snapshot)["additional_recipes"] == []
+    worksheet = WritableWorksheet()
+    sync_production_order_outbox(worksheet, [headers], db_config=config, dry_run=False)
+    baseline = [headers, worksheet.appended[0]]
 
     latest = baseline + [["O002", "2026-08-17", "R001", "Blue", "Customer", "2", "3"]]
     preflight = import_sheet_values("生產單", latest, db_path=db, dry_run=True)
-    assert preflight.to_insert == 1
-    assert preflight.unchanged == 1
+    assert len(preflight.errors) == 1 and "O002" in preflight.errors[0]
+    with pytest.raises(ImportAbortedError):
+        import_sheet_values("生產單", latest, db_path=db, abort_on_issues=True)
 
-    applied = import_sheet_values("生產單", latest, db_path=db, abort_on_issues=True)
-    verification = import_sheet_values("生產單", latest, db_path=db, dry_run=True)
+    updated = [headers, ["O001", "2026-08-16", "R001", "Red", "Customer", "1", "4"]]
+    applied = import_sheet_values("生產單", updated, db_path=db, abort_on_issues=True)
     assert applied.inserted_or_updated == 1
-    assert verification.unchanged == 2
-    assert {row["生產單號"] for row in list_production_orders(config)} == {"O001", "O002"}
+    orders = list_production_orders(config, include_recipe_snapshot=True)
+    assert len(orders) == 1 and orders[0]["生產單號"] == "O001"
+    assert orders[0]["包裝份數1"] == "4"
+    assert orders[0]["_recipe_snapshot_json"] == snapshot
+
+    create_recipe(config, {"配方編號": "R002"})
+    updated[1][2] = "R002"
+    preflight = import_sheet_values("生產單", updated, db_path=db, dry_run=True)
+    assert len(preflight.errors) == 1 and "配方編號須保留" in preflight.errors[0]
 
 
 def test_recipe_import_persists_components_and_is_idempotent(tmp_path):

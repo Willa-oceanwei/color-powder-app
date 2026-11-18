@@ -1066,27 +1066,32 @@ def import_sheet_values(
                 if existed and _entity_changed_since_sync(entity):
                     result.conflicts += 1
                     continue
+                if entity is None:
+                    result.errors.append(
+                        f"row {index + 2}: 生產單 {order_id} 缺少原始配方副本，請在生產單建立頁開立新單。"
+                    )
+                    continue
+                recorded_recipe_id = entity["recipe_id"] or json.loads(entity["payload_json"]).get("配方編號", "")
+                if recipe_id != recorded_recipe_id:
+                    result.errors.append(f"row {index + 2}: 既有生產單 {order_id} 的配方編號須保留。")
+                    continue
                 if not dry_run:
                     synced_at = utc_now_iso()
-                    upsert_sheet_row(conn, sheet_name, row_key, row, row_hash, _sheet_updated_at(row))
-                    conn.execute(
-                        """INSERT INTO production_orders(
-                               production_order_id, production_date, recipe_id, color, customer_name,
-                               payload_json, source, created_at, updated_at, last_synced_at)
-                           VALUES (?, ?, ?, ?, ?, ?, 'google_sheets_import', ?, ?, ?)
-                           ON CONFLICT(production_order_id) DO UPDATE SET
-                               production_date=excluded.production_date, recipe_id=excluded.recipe_id,
-                               color=excluded.color, customer_name=excluded.customer_name,
-                               payload_json=excluded.payload_json, source=excluded.source,
-                               version=production_orders.version+1, updated_at=excluded.updated_at,
-                               last_synced_at=excluded.last_synced_at""",
+                    cursor = conn.execute(
+                        """UPDATE production_orders SET production_date=?, color=?, customer_name=?,
+                               payload_json=?, source='google_sheets_import', version=version+1,
+                               updated_at=?, last_synced_at=? WHERE production_order_id=? AND version=?""",
                         (
-                            order_id, row.get("生產日期", ""), recipe_id or None,
+                            row.get("生產日期", ""),
                             row.get("顏色", ""), row.get("客戶名稱", ""),
                             json.dumps(row, ensure_ascii=False), synced_at,
-                            _sheet_updated_at(row) or synced_at, synced_at,
+                            synced_at, order_id, entity["version"],
                         ),
                     )
+                    if cursor.rowcount != 1:
+                        result.conflicts += 1
+                        continue
+                    upsert_sheet_row(conn, sheet_name, row_key, row, row_hash, _sheet_updated_at(row))
                     conn.execute("DELETE FROM production_order_packages WHERE production_order_id=?", (order_id,))
                     for position in range(1, 5):
                         weight = _safe_float(row.get(f"包裝重量{position}", 0))
