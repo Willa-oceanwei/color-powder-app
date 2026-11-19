@@ -67,7 +67,7 @@ COMPACT_STYLE = """
 :is(.stMain, section.main):has(#shipment-page) .shipment-total:last-child {border-top:1px solid #84919d;font-weight:600;font-size:16px;margin-top:4px;padding-top:6px;}
 /* Streamlit 1.38's Markdown wrapper has a negative bottom margin. Custom
    HTML blocks must reserve their full height before the next control. */
-:is(.stMain, section.main):has(#shipment-page) [data-testid="stMarkdownContainer"]:has(> :is(.shipment-section, .shipment-edit-status, .shipment-totals-card, .shipment-lines, .shipment-number-help, #shipment-toolbar)) {display:flow-root;margin:0!important;}
+:is(.stMain, section.main):has(#shipment-page) [data-testid="stMarkdownContainer"]:has(> :is(.shipment-section, .shipment-read-field, .shipment-edit-status, .shipment-totals-card, .shipment-lines, .shipment-number-help, #shipment-toolbar)) {display:flow-root;margin:0!important;}
 :is(.stMain, section.main):has(#shipment-page) .shipment-section {font-size:13px;line-height:1.6;font-weight:700;letter-spacing:.04em;padding:5px 10px;margin:0;border-left:4px solid #59baff;border-radius:4px;background:#10293b;color:#c5e7ff;}
 :is(.stMain, section.main):has(#shipment-page) .shipment-section.delivery {border-color:#57d6b1;background:#102e2a;color:#b3f2dd;}
 :is(.stMain, section.main):has(#shipment-page) .shipment-section.items {border-color:#b8a1ff;background:#28213a;color:#e1d5ff;}
@@ -141,6 +141,15 @@ def _rerun_shipment():
 def _request_shipment_save():
     """Retain the click until a complete render can validate and save the draft."""
     st.session_state.shipment_pending_save = True
+
+
+def _navigate_shipment(target_id, direction):
+    if "shipment_draft" in st.session_state:
+        return
+    if target_id is None:
+        st.session_state.shipment_saved_nav_direction = direction
+    else:
+        st.session_state.shipment_selected = target_id
 
 
 def _cached_print(config, document, **options):
@@ -503,11 +512,13 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                           "客戶編號": r["customer_id"], "客戶名稱": display.name(r["customer_name"], r["customer_id"]), "總計（未稅）": int(r["net_amount"]),
                           "狀態": "作廢" if r["status"] == "void" else "有效",
                           "收款註記": "已付清" if r.get("paid_in_full") else ""} for r in records])
-                chosen = render_selection_table(result, records, key="shipment_results_" + str(st.session_state["shipment_search_epoch"]),
-                                                id_field="id", height=min(400, 38 * (len(records) + 1)), disabled=editing)
-                if editing:
-                    st.caption("草稿已保留；儲存或取消後可開啟查詢結果。")
-                elif chosen is not None:
+                if len(records) == 1:
+                    st.table(result)
+                    chosen = records[0]
+                else:
+                    chosen = render_selection_table(result, records, key="shipment_results_" + str(st.session_state["shipment_search_epoch"]),
+                                                    id_field="id", height=min(400, 38 * (len(records) + 1)))
+                if chosen is not None:
                     event = (st.session_state["shipment_search_epoch"], chosen["id"])
                     if event != st.session_state.get("shipment_result_event"):
                         st.session_state.shipment_result_event = event
@@ -570,14 +581,11 @@ def render_shipment_management(config, *, start_new_on_entry=False):
     save_clicked = editing and (save_pressed or st.session_state.get("shipment_pending_save", False))
     if save_clicked:
         st.session_state.shipment_pending_save = True
-    for col, label, target in ((tools[5], "上一筆", index - 1), (tools[6], "下一筆", index + 1)):
-        if col.button(label, key="shipment_nav_" + label,
-                      disabled=editing or (not showing_saved and (not ids or target < 0 or target >= len(ids) or target == index)), use_container_width=True):
-            if showing_saved:
-                st.session_state.shipment_saved_nav_direction = -1 if label == "上一筆" else 1
-            else:
-                st.session_state.shipment_selected = ids[target]
-            _rerun_shipment()
+    for col, label, direction in ((tools[5], "上一筆", -1), (tools[6], "下一筆", 1)):
+        target = index + direction
+        target_id = ids[target] if not showing_saved and 0 <= target < len(ids) else None
+        col.button(label, key="shipment_nav_" + label, disabled=editing or (not showing_saved and target_id is None),
+                   use_container_width=True, on_click=_navigate_shipment, args=(target_id, direction))
     position = "已儲存" if showing_saved else f"{index + 1 if ids else 0} / {len(ids)}"
     tools[7].markdown(f'<span id="shipment-toolbar" style="font-size:12px">{position}</span>', unsafe_allow_html=True)
     hide_prices = st.session_state.get("shipment_hide_prices", st.session_state.get("shipment_hide_preference", False))
@@ -857,9 +865,11 @@ def render_shipment_management(config, *, start_new_on_entry=False):
     else:
         frame["貨品編號"] = [printed_code(item) for item in document["items"]]
         frame = frame.drop(columns="顯示編號")
-        edit_item_notes = not showing_saved or st.toggle("編輯品項附註", key=prefix + "edit_item_notes")
+        edit_item_notes = document["status"] != "void" and st.toggle(
+            "編輯品項附註", key=f"shipment_view_{document['id']}_edit_item_notes",
+        )
         if not edit_item_notes:
-            # The save result can show all items without mounting another canvas grid.
+            # Browsing and switching orders use a static table.
             for column in ("數量", "單價"):
                 frame[column] = frame[column].map(display_price, na_action="ignore").fillna("")
             frame["金額"] = frame["金額"].map(display_amount)
@@ -872,10 +882,10 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                 st.error(note_error[1])
             notes_key = prefix + "item_notes"
             st.data_editor(frame, key=notes_key, height=185, hide_index=True, use_container_width=True,
-                           num_rows="fixed", disabled=True if document.get("status") == "void" else [name for name in frame.columns if name != "附註說明"],
+                           num_rows="fixed", disabled=[name for name in frame.columns if name != "附註說明"],
                            on_change=_save_item_notes, args=(config, deepcopy(document), notes_key),
                            column_config={"附註說明": st.column_config.TextColumn("附註說明", help="可直接修改，離開儲存格後自動儲存。"), "採購單號": st.column_config.TextColumn("採購單號", width="medium"), "數量": st.column_config.NumberColumn(format="%.15g"), "單價": st.column_config.NumberColumn(format="%.15g")})
-            if document["status"] != "void" and note_error and note_error[0] == document["id"]:
+            if note_error and note_error[0] == document["id"]:
                 st.button("重試儲存附註", key=notes_key + "_retry", on_click=_save_item_notes,
                           args=(config, deepcopy(document), notes_key))
     if editing:

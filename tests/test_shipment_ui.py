@@ -223,8 +223,11 @@ render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(confi
     next(w for w in app.text_input if w.label == '出貨單號 / 客戶 / 貨品編號').set_value('029541')
     next(b for b in app.button if b.label == '查詢').click().run()
     assert not app.exception and app.session_state['shipment_selected'] == saved['029541']
+    assert not app.get('arrow_data_frame')
+    assert app.table[0].value['出貨單號'].tolist() == ['029541']
     app.button(key='shipment_nav_下一筆').click().run()
     assert not app.exception and app.session_state['shipment_selected'] == saved['029542']
+    assert not app.get('arrow_data_frame')
     assert not app.button(key='shipment_edit').disabled and not app.button(key='shipment_copy').disabled
     app.button(key='shipment_nav_下一筆').click().run()
     assert not app.exception and app.session_state['shipment_selected'] == saved['029543']

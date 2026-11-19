@@ -83,7 +83,7 @@ render_shipment_management(DatabaseConfig(backend="sqlite",path=Path({str(config
     assert not app.get("arrow_data_frame")
     assert len(app.table) == 1 and app.table[0].value.iloc[0]["品名"] == "Custom Blue"
     item_prefix = f"shipment_view_{saved['id']}_{saved['version']}_"
-    app.toggle(key=item_prefix + "edit_item_notes").set_value(True).run()
+    app.toggle(key=f"shipment_view_{saved['id']}_edit_item_notes").set_value(True).run()
     assert any(element.proto.id.endswith(item_prefix + "item_notes") for element in app.get("arrow_data_frame"))
 
     app.button(key="shipment_edit").click().run()

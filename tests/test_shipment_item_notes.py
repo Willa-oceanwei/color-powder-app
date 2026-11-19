@@ -126,6 +126,9 @@ render_shipment_management(config)
 '''
     app = AppTest.from_string(script).run(timeout=30)
     assert not app.exception
+    assert not app.get("arrow_data_frame")
+    assert app.table[0].value.iloc[0]["附註說明"] == "原附註"
+    app.toggle(key=f"shipment_view_{before['id']}_edit_item_notes").set_value(True).run()
     key = f"shipment_view_{before['id']}_{before['version']}_item_notes"
     editor = next(element for element in app.get("arrow_data_frame") if element.proto.id.endswith(key))
     import json
@@ -146,9 +149,11 @@ render_shipment_management(config)
     assert any("附註說明已儲存" in element.proto.body for element in app.get("toast"))
     app.run()
     assert get_shipment(config, before["id"]) == after
+    assert any(element.proto.id.endswith(f"{after['version']}_item_notes") for element in app.get("arrow_data_frame"))
     app.button(key="shipment_edit").click().run()
     assert app.session_state["shipment_draft"]["items"][0]["notes"] == "直接輸入"
     app.button(key="shipment_cancel").click().run()
+    app.toggle(key=f"shipment_view_{before['id']}_edit_item_notes").set_value(True).run()
     key = f"shipment_view_{after['id']}_{after['version']}_item_notes"
     app.session_state["note_key"] = key
     app.session_state["note_document"] = after
