@@ -298,6 +298,8 @@ def save_shipment(config, document, *, sync_products=False, fill_missing_contact
     with connect_from_config(config) as conn:
         existing = _mapping(conn.execute(
             """SELECT s.*,
+               (SELECT name FROM customers WHERE customer_id=s.customer_id
+                AND lifecycle_status='active') AS current_customer_name,
                (SELECT COALESCE(SUM(CAST(amount AS INTEGER)),0) FROM shipment_receipts
                 WHERE shipment_id=s.id AND status='active') AS saved_paid,
                EXISTS(SELECT 1 FROM sales_returns WHERE shipment_id=s.id AND status='active') AS has_returns,
@@ -306,6 +308,7 @@ def save_shipment(config, document, *, sync_products=False, fill_missing_contact
                (SELECT payload_json FROM shipment_invoices WHERE shipment_id=s.id) AS saved_invoice
                FROM shipment_orders s WHERE s.id=?""", (shipment_id,))) if document.get("id") else None
         paid = existing.pop("saved_paid") if existing else 0
+        current_customer_name = existing.pop("current_customer_name") if existing else None
         old_items = [json.loads(value) for value in json.loads(existing.pop("saved_items"))] if existing else []
         old_invoice = json.loads(existing.pop("saved_invoice") or "{}") if existing else {}
         if document.get("id") and not existing:
@@ -361,6 +364,8 @@ def save_shipment(config, document, *, sync_products=False, fill_missing_contact
                 for field in CONTACT_FIELDS:
                     if field in fill_missing_contacts and not header[field] and (field != "address" or same_recipient):
                         header[field] = str(customer.get(field) or "").strip()
+        elif current_customer_name:
+            header["customer_name"] = current_customer_name
         if existing:
             if existing["status"] != "draft":
                 raise ShipmentError("已作廢出貨單不可修改")
