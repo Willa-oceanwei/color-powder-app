@@ -10,6 +10,7 @@ from time import monotonic
 import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
+from streamlit.runtime.scriptrunner import get_script_run_ctx
 
 from .shipment_catalog import shipment_choices, complete_items, recent_item_defaults, editing_product_matcher
 from .shipment_print import display_amount, display_price
@@ -119,7 +120,11 @@ body:has(.erp-title):has(#shipment-page) [data-testid="stPopoverBody"] button {b
 
 
 def _rerun_shipment():
-    st.rerun()
+    context = get_script_run_ctx()
+    if context is not None and context.fragment_ids_this_run:
+        st.rerun(scope="fragment")
+    else:
+        st.rerun()
 
 
 def _request_shipment_save():
@@ -373,6 +378,7 @@ def _editor_rebase_needed(raw_items, completed_items):
 
 # Streamlit 1.38 can leave editor/tab nodes blank on fragment updates.
 # Render this page in the normal app run; session read/print caches stay in use.
+@st.fragment
 @shipment_timing("shipment_render")
 def render_shipment_management(config, *, start_new_on_entry=False):
     for key, preference in (("shipment_print_preview", "shipment_preview_preference"), ("shipment_hide_prices", "shipment_hide_preference")):
