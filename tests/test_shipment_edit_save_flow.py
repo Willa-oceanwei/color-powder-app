@@ -2,9 +2,9 @@ from pathlib import Path
 
 from streamlit.testing.v1 import AppTest
 
-from utils.customer_repository import CustomerInput, create_customer
+from utils.customer_repository import CustomerInput, create_customer, update_customer
 from utils.database import DatabaseConfig, initialize_database
-from utils.shipment_repository import blank_shipment, get_shipment, save_shipment
+from utils.shipment_repository import blank_shipment, get_shipment, printable_shipment, save_shipment
 
 
 def _editing_app(tmp_path):
@@ -24,6 +24,20 @@ from utils.shipment_ui import render_shipment_management
 render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(config.path)!r})))
 """).run(timeout=30)
     return config, saved, app
+
+
+def test_resaving_shipment_prints_the_current_full_customer_name(tmp_path):
+    config, saved, app = _editing_app(tmp_path)
+    update_customer(config, CustomerInput("C01", "範例模具有限公司", short_name="範例"))
+    assert get_shipment(config, saved["id"])["customer_name"] == "Customer"
+
+    app.button(key="shipment_edit").click().run()
+    app.button(key="shipment_save").click().run()
+    assert not app.exception and not app.error
+
+    updated = get_shipment(config, saved["id"])
+    assert updated["customer_name"] == "範例模具有限公司"
+    assert "客戶名稱：C01　範例模具有限公司</div>" in printable_shipment(updated)
 
 
 def test_ambiguous_match_button_survives_rerun_apply_and_save(tmp_path):
