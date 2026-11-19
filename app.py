@@ -34,6 +34,7 @@ from utils.big_label_repository import (
     normalize_big_label_editor_rows, remember_big_label_rows, expand_big_label_editor_rows, format_label_ratio_value,
 )
 from utils.shipment_ui import render_shipment_management
+from utils.sales_return_ui import render_sales_returns
 from utils.scheduled_quote_ui import render_scheduled_quotes
 from utils.carwash_inventory_ui import show_carwash_save_notice
 from utils.product_ui import render_product_management
@@ -1296,6 +1297,7 @@ def render_sidebar():
         {"group":"生產","key":"配方管理","label":"配方管理"},
         {"group":"生產","key":"代工管理","label":"代工管理"},
         {"group":"會計","key":"出貨單","label":"出貨單"},
+        {"group":"會計","key":"銷貨退回","label":"銷貨退回"},
         {"group":"會計","section":"應收帳款","key":"應收帳款明細表","label":"應收帳款"},
         {"group":"會計","section":"應收帳款","key":"預告報價","label":"預告報價"},
         {"group":"會計","section":"各式明細","key":"客戶交易明細","label":"客戶交易明細"},
@@ -1736,6 +1738,7 @@ MENU_ITEMS = [
     {"key": "配方管理", "label": "配方管理", "group": "生產"},
     {"key": "代工管理", "label": "代工管理", "group": "生產"},
     {"key": "出貨單", "label": "出貨單", "group": "會計"},
+    {"key": "銷貨退回", "label": "銷貨退回", "group": "會計"},
     {"key": "貨品", "label": "貨品", "group": "會計"},
     {"key": "應收帳款明細表", "label": "應收帳款", "group": "會計"},
     {"key": "預告報價", "label": "預告報價", "group": "會計"},
@@ -1763,6 +1766,7 @@ def render_erp_nav():
         {"key": "配方管理",   "label": "配方管理",   "group": "生產"},
         {"key": "代工管理",   "label": "代工管理",   "group": "生產"},
         {"key": "出貨單", "label": "出貨單", "group": "會計"},
+        {"key": "銷貨退回", "label": "銷貨退回", "group": "會計"},
         {"key": "貨品", "label": "貨品", "group": "會計"},
         {"key": "應收帳款明細表", "label": "應收帳款", "group": "會計"},
         {"key": "預告報價", "label": "預告報價", "group": "會計"},
@@ -3805,6 +3809,8 @@ if menu != "出貨單":
 
 if menu == "出貨單":
     render_shipment_management(DATABASE_CONFIG, start_new_on_entry=True)
+elif menu == "銷貨退回":
+    render_sales_returns(DATABASE_CONFIG)
 elif menu == "貨品":
     render_product_management(DATABASE_CONFIG)
 elif menu == "預告報價":

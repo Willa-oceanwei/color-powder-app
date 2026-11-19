@@ -24,7 +24,7 @@ from typing import Any, Protocol
 from .read_cache import invalidate_read_cache
 
 DEFAULT_DB_PATH = Path("data/colorpowder.db")
-SCHEMA_VERSION = 35
+SCHEMA_VERSION = 36
 LOGGER = logging.getLogger(__name__)
 MAIN_TABLES = {
     "recipe_code_reviews",
@@ -35,6 +35,7 @@ MAIN_TABLES = {
     "receipt_batches",
     "receipt_batch_allocations",
     "shipment_receipts",
+    "sales_returns",
     "products",
     "shipment_number_sequences",
     "shipment_orders",
@@ -418,6 +419,29 @@ CREATE TABLE IF NOT EXISTS production_order_history_previews (
 );
 """
 
+SALES_RETURN_SCHEMA = """
+CREATE TABLE IF NOT EXISTS sales_returns (
+    id TEXT PRIMARY KEY,
+    shipment_id TEXT NOT NULL REFERENCES shipment_orders(id),
+    source_version INTEGER NOT NULL,
+    shipment_number TEXT NOT NULL,
+    return_number TEXT NOT NULL UNIQUE,
+    return_date TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    items_json TEXT NOT NULL CHECK(json_valid(items_json)),
+    net_amount TEXT NOT NULL,
+    tax_amount TEXT NOT NULL,
+    total_amount TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','void')),
+    void_reason TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE(shipment_id, source_version)
+);
+CREATE INDEX IF NOT EXISTS idx_sales_returns_date ON sales_returns(return_date, status);
+CREATE INDEX IF NOT EXISTS idx_sales_returns_shipment ON sales_returns(shipment_id, status, return_date);
+"""
+
 
 def _initialize_schema(conn: SqlExecutor) -> None:
     """Create/validate the current schema on an open SQLite-compatible connection."""
@@ -428,9 +452,9 @@ def _initialize_schema(conn: SqlExecutor) -> None:
         if not _is_missing_schema_migrations_error(exc):
             raise
         health = None
-    metadata_tables = CARWASH_MERGE_TABLES | {"recipe_code_reviews", "production_order_history_previews"}
+    metadata_tables = CARWASH_MERGE_TABLES | {"recipe_code_reviews", "production_order_history_previews", "sales_returns"}
     if (health is not None
-            and (health.schema_version in (32, 33, 34)
+            and (health.schema_version in (32, 33, 34, 35)
                  or (health.schema_version == SCHEMA_VERSION
                      and not metadata_tables.issubset(health.existing_tables)))
             and (MAIN_TABLES - metadata_tables).issubset(health.existing_tables)
@@ -439,6 +463,7 @@ def _initialize_schema(conn: SqlExecutor) -> None:
         _execute_script(conn, CARWASH_MERGE_SCHEMA)
         _execute_script(conn, RECIPE_CODE_REVIEW_SCHEMA)
         _execute_script(conn, PRODUCTION_ORDER_HISTORY_PREVIEW_SCHEMA)
+        _execute_script(conn, SALES_RETURN_SCHEMA)
         conn.execute("INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES (?, ?)",
                      (SCHEMA_VERSION, utc_now_iso()))
         return
@@ -1179,6 +1204,7 @@ def _initialize_schema(conn: SqlExecutor) -> None:
     _execute_script(conn, CARWASH_MERGE_SCHEMA)
     _execute_script(conn, RECIPE_CODE_REVIEW_SCHEMA)
     _execute_script(conn, PRODUCTION_ORDER_HISTORY_PREVIEW_SCHEMA)
+    _execute_script(conn, SALES_RETURN_SCHEMA)
     conn.execute(
         "INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES (?, ?)",
         (SCHEMA_VERSION, utc_now_iso()),

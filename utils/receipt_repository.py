@@ -9,6 +9,13 @@ from .database import connect_from_config, utc_now_iso
 from .shipment_repository import ShipmentError, _valid_date, decimal_value
 
 
+# Shared by each path that posts or changes money against a shipment.
+_RETURN_TOTAL = (
+    "(SELECT COALESCE(SUM(CAST(sr.total_amount AS INTEGER)),0) FROM sales_returns sr "
+    "WHERE sr.shipment_id=shipment_orders.id AND sr.status='active')"
+)
+
+
 def save_receipt(config, *, receipt_id, shipment_id, shipment_version, receipt_date, amount,
                  method="匯款", reference="", notes=""):
     receipt_date = _valid_date(receipt_date, "收款日期")
@@ -30,7 +37,7 @@ def save_receipt(config, *, receipt_id, shipment_id, shipment_version, receipt_d
         now = utc_now_iso()
         changed = _mapping(conn.execute(
             "UPDATE shipment_orders SET version=version+1,updated_at=? WHERE id=? AND version=? AND status='draft' "
-            "AND CAST(total_amount AS INTEGER) - (SELECT COALESCE(SUM(CAST(amount AS INTEGER)),0) "
+            f"AND CAST(total_amount AS INTEGER)-{_RETURN_TOTAL} - (SELECT COALESCE(SUM(CAST(amount AS INTEGER)),0) "
             "FROM shipment_receipts WHERE shipment_id=? AND status='active') >= ? RETURNING id",
             (now, shipment_id, shipment_version, shipment_id, int(amount))))
         if not changed:
@@ -64,11 +71,12 @@ def void_receipt(config, receipt_id, reason):
 def outstanding_shipments(config, customer_id):
     with connect_from_config(config) as conn:
         return _mappings(conn.execute(
-            "SELECT s.id,s.shipment_number,s.shipment_date,s.version,s.total_amount,"
-            "CAST(s.total_amount AS INTEGER)-COALESCE(SUM(CASE WHEN r.status='active' THEN CAST(r.amount AS INTEGER) ELSE 0 END),0) AS balance "
-            "FROM shipment_orders s LEFT JOIN shipment_receipts r ON r.shipment_id=s.id "
-            "WHERE s.customer_id=? AND s.status='draft' GROUP BY s.id HAVING balance>0 "
-            "ORDER BY s.shipment_date,s.shipment_number,s.id", (customer_id,)))
+            "SELECT * FROM (SELECT id,shipment_number,shipment_date,version,total_amount,"
+            f"CAST(total_amount AS INTEGER)-{_RETURN_TOTAL}-"
+            "(SELECT COALESCE(SUM(CAST(r.amount AS INTEGER)),0) FROM shipment_receipts r "
+            "WHERE r.shipment_id=shipment_orders.id AND r.status='active') AS balance "
+            "FROM shipment_orders WHERE customer_id=? AND status='draft') WHERE balance>0 "
+            "ORDER BY shipment_date,shipment_number,id", (customer_id,)))
 
 
 def _tracking_start(conn, customer_id):
@@ -114,7 +122,7 @@ def _apply_batch_allocations(conn, batch, allocations, request_id, allocation_da
         changed = _mapping(conn.execute(
             "UPDATE shipment_orders SET version=version+1,updated_at=? "
             "WHERE id=? AND customer_id=? AND version=? AND status='draft' "
-            "AND shipment_date>=? AND shipment_date<=? AND CAST(total_amount AS INTEGER)-(SELECT COALESCE(SUM(CAST(amount AS INTEGER)),0) "
+            f"AND shipment_date>=? AND shipment_date<=? AND CAST(total_amount AS INTEGER)-{_RETURN_TOTAL}-(SELECT COALESCE(SUM(CAST(amount AS INTEGER)),0) "
             "FROM shipment_receipts WHERE shipment_id=? AND status='active')>=? RETURNING id",
             (now, row['shipment_id'], batch['customer_id'], row['shipment_version'], tracking_start, allocation_date, row['shipment_id'], row['amount'])))
         if not changed:
@@ -260,11 +268,11 @@ def update_receipt_amount(config, *, receipt_id, shipment_version, amount, reaso
         now = utc_now_iso()
         changed = _mapping(conn.execute(
             "UPDATE shipment_orders SET version=version+1,updated_at=? WHERE id=? AND version=? AND status='draft' "
-            "AND CAST(total_amount AS INTEGER)-(SELECT COALESCE(SUM(CAST(amount AS INTEGER)),0) FROM shipment_receipts "
-            "WHERE shipment_id=? AND status='active' AND id<>?)>=? RETURNING id",
-            (now, old['shipment_id'], shipment_version, old['shipment_id'], receipt_id, amount)))
+            f"AND MAX(?,CAST(total_amount AS INTEGER)-{_RETURN_TOTAL}-(SELECT COALESCE(SUM(CAST(amount AS INTEGER)),0) "
+            "FROM shipment_receipts WHERE shipment_id=? AND status='active' AND id<>?))>=? RETURNING id",
+            (now, old['shipment_id'], shipment_version, int(old['amount']), old['shipment_id'], receipt_id, amount)))
         if not changed:
-            raise ShipmentError('單據已變更或修改後收款超過出貨總額，請重新讀取')
+            raise ShipmentError('單據已變更或修改後收款超過退回後的應收金額，請重新讀取')
         conn.execute('UPDATE shipment_receipts SET amount=?,updated_at=? WHERE id=?', (str(amount), now, receipt_id))
         _log_receipt_edit(conn, receipt_id, 'single', {'amount': old['amount']}, {'amount': str(amount)}, reason)
 
@@ -299,15 +307,17 @@ def update_receipt_batch_amounts(config, *, batch_id, batch_version, amount, all
             entry = proposed[r['id']]
             if r['shipment_version'] != entry['shipment_version'] or r['status'] != 'active':
                 raise ShipmentError('出貨單或沖抵明細已變更，請重新讀取')
-            group = shipments.setdefault(r['shipment_id'], dict(amount=0, version=entry['shipment_version']))
+            group = shipments.setdefault(r['shipment_id'], dict(amount=0, previous=0, version=entry['shipment_version']))
             group['amount'] += entry['amount']
+            group['previous'] += int(r['amount'])
         for shipment_id, group in shipments.items():
             changed = _mapping(conn.execute(
                 "UPDATE shipment_orders SET version=version+1,updated_at=? WHERE id=? AND version=? AND status='draft' "
-                "AND CAST(total_amount AS INTEGER)-(SELECT COALESCE(SUM(CAST(r.amount AS INTEGER)),0) FROM shipment_receipts r "
-                "WHERE r.shipment_id=? AND r.status='active' AND NOT EXISTS(SELECT 1 FROM receipt_batch_allocations a "
-                "WHERE a.receipt_id=r.id AND a.batch_id=?))>=? RETURNING id",
-                (now, shipment_id, group['version'], shipment_id, batch_id, group['amount'])))
+                f"AND MAX(?,CAST(total_amount AS INTEGER)-{_RETURN_TOTAL}-(SELECT COALESCE(SUM(CAST(r.amount AS INTEGER)),0) "
+                "FROM shipment_receipts r WHERE r.shipment_id=? AND r.status='active' "
+                "AND NOT EXISTS(SELECT 1 FROM receipt_batch_allocations a "
+                "WHERE a.receipt_id=r.id AND a.batch_id=?)))>=? RETURNING id",
+                (now, shipment_id, group['version'], group['previous'], shipment_id, batch_id, group['amount'])))
             if not changed:
                 raise ShipmentError('修改後的沖抵超過未收金額或出貨單已變更，請重新讀取')
         for receipt_id, row in proposed.items():
