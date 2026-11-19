@@ -99,10 +99,11 @@ else:
     monkeypatch.setattr(ui.CustomerDisplay, 'name', original_name)
     app.button(key='shipment_nav_上一筆').click().run()
     assert not app.exception and calls == ['list_shipments', 'get_shipment']
-    assert next(w for w in app.text_input if w.label == '出貨單號').value == '001'
+    assert any('出貨單號</span><span class="shipment-read-value">001</span>' in w.value for w in app.markdown)
+    assert all(w.label != '出貨單號' for w in app.text_input)
     assert app.button(key='shipment_nav_上一筆').disabled
     app.button(key='shipment_nav_下一筆').click().run()
-    assert next(w for w in app.text_input if w.label == '出貨單號').value == '002'
+    assert any('出貨單號</span><span class="shipment-read-value">002</span>' in w.value for w in app.markdown)
     app.button(key='shipment_edit').click().run()
     next(w for w in app.text_area if w.label == '備註').set_value('Updated')
     calls.clear()
@@ -121,7 +122,7 @@ else:
     next(w for w in app.text_input if w.label == '出貨單號 / 客戶 / 貨品編號').set_value('003')
     next(w for w in app.button if w.label == '查詢').click().run()
     assert not app.exception and 'shipment_saved_view' not in app.session_state
-    assert next(w for w in app.text_input if w.label == '出貨單號').value == '003'
+    assert any('出貨單號</span><span class="shipment-read-value">003</span>' in w.value for w in app.markdown)
     # Saving once more and leaving through the real sidebar needs no list read.
     app.button(key='shipment_edit').click().run()
     app.button(key='shipment_save').click().run()

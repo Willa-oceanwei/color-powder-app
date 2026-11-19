@@ -327,6 +327,6 @@ render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(confi
     saved = get_shipment(config, app.session_state["shipment_selected"])
     assert saved["address"] == "本次指定地址" and saved["phone"] == ""
     assert (saved["fax"], saved["contact"], saved["tax_id"]) == ("06-2222222", "聯絡人", "01234567")
-    assert next(w for w in app.text_input if w.label == "聯絡人").value == "聯絡人"
+    assert any('聯絡人</span><span class="shipment-read-value">聯絡人</span>' in w.value for w in app.markdown)
 
 
