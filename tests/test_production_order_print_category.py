@@ -2,18 +2,22 @@
 
 import ast
 from pathlib import Path
+import re
 import unittest
 
 
 def _load_print_helpers():
     source = Path("app.py").read_text(encoding="utf-8")
     module = ast.parse(source)
-    wanted = {"generate_production_order_print", "generate_print_page_content"}
+    wanted = {
+        "colorant_shipment_display_multiplier", "generate_production_order_print",
+        "generate_print_page_content", "generate_order_preview_text",
+    }
     functions = [
         node for node in module.body
         if isinstance(node, ast.FunctionDef) and node.name in wanted
     ]
-    namespace = {}
+    namespace = {"re": re}
     exec(compile(ast.Module(body=functions, type_ignores=[]), "app.py", "exec"), namespace)
     return namespace
 
@@ -69,6 +73,21 @@ class ProductionOrderPrintCategoryTests(unittest.TestCase):
         result = self.helpers["generate_production_order_print"](self.order, self.recipe)
         self.assertIn("100K × 2", result)
         self.assertIn("99584", result)
+
+    def test_actual_kg_option_applies_to_a5_and_outsourcing_previews(self):
+        self.order.update({
+            "包裝重量1": "2", "包裝份數1": "1", "包裝重量2": "0.025", "包裝份數2": "2",
+        })
+        for mode_field in ("出貨數量顯示方式", "色母數量模式"):
+            order = {**self.order, mode_field: "實際公斤（1 = 1kg）"}
+            for renderer in ("generate_print_page_content", "generate_order_preview_text"):
+                with self.subTest(mode_field=mode_field, renderer=renderer):
+                    render = self.helpers[renderer]
+                    document = render(order, self.recipe, [])
+                    self.assertIn("2K × 1", document)
+                    self.assertIn("0.025K × 2", document)
+                    self.assertNotIn("200K × 1", document)
+        self.assertIn("200K × 1", self.helpers["generate_print_page_content"](self.order, self.recipe))
 
     def test_non_colorant_units_keep_existing_conversion(self):
         for unit, weight, heading in (
