@@ -35,8 +35,8 @@ def _workbook(sheets):
 
 
 def statement_excel(statements, *, show_receipts=False, title="應收帳款明細表", company_name=COMPANY["name"]):
-    details = [["客戶編號", "客戶名稱", "交易日期", "出貨單號", "貨品編號", "品名", "數量", "單位", "單價", "金額", "備註", "採購單號"]]
-    summary = [["客戶編號", "客戶名稱", "帳款起日", "帳款迄日", "未稅合計", "稅額", "出貨總額"] +
+    details = [["客戶編號", "客戶名稱", "交易日期", "單據號碼", "貨品編號", "品名", "數量", "單位", "單價", "金額", "備註", "採購單號"]]
+    summary = [["客戶編號", "客戶名稱", "帳款起日", "帳款迄日", "未稅合計", "稅額", "含稅淨額"] +
                (["截至期末已登錄收款", "帳面未收餘額"] if show_receipts else [])]
     for s in statements:
         summary.append([s["customer_id"], s["customer_name"], s["start"], s["end"]] +
@@ -46,7 +46,8 @@ def statement_excel(statements, *, show_receipts=False, title="應收帳款明�
                 details.append([s["customer_id"], s["customer_name"], d["date"], d["number"], printed_code(item), item["name"],
                                 Decimal(item["quantity"]), item["unit"], Decimal(item["price"]) if item["price"] != "" else None,
                                 int(item["amount"]) if item["amount"] != "" else None,
-                                item.get("notes", ""), item.get("order_number", "")])
+                                f"銷貨退回・原出貨單 {d['original_number']}" if d.get("original_number") else item.get("notes", ""),
+                                item.get("order_number", "")])
     from openpyxl import load_workbook
     from openpyxl.styles import Alignment, Border, Font, Side
     from openpyxl.worksheet.pagebreak import Break
@@ -275,9 +276,9 @@ def statement_pdf(pages, *, show_receipts=False, title="應收帳款明細表", 
 
 
 def ranking_rows(statements):
-    rows = [["排名", "客戶編號", "客戶名稱", "出貨筆數", "未稅合計", "稅額", "出貨總額"]]
+    rows = [["排名", "客戶編號", "客戶名稱", "出貨筆數", "未稅合計", "稅額", "含稅淨額"]]
     for index, s in enumerate(sorted(statements, key=lambda s: (-Decimal(s["net"]), s["customer_id"]))):
-        rows.append([index + 1, s["customer_id"], s["customer_name"], len(s["documents"]), int(s["net"]), int(s["tax"]), int(s["total"])])
+        rows.append([index + 1, s["customer_id"], s["customer_name"], sum(d.get("kind") != "退回" for d in s["documents"]), int(s["net"]), int(s["tax"]), int(s["total"])])
     return rows
 
 

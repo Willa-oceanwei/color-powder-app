@@ -16,6 +16,7 @@ from .customer_display import CustomerDisplay
 from .customer_repository import list_customers, customer_display_name
 from .receivable_report import build_statements, render_statement_print, statement_pages, monthly_receipt_summary
 from .paper_preview import theme_preview, dismiss_export_on_preview_click
+from .sales_return_repository import list_sales_returns
 from .shipment_repository import ShipmentError, get_shipment, list_shipments
 from .receipt_repository import (list_receipts, save_receipt, void_receipt, outstanding_shipments,
                                  save_receipt_batch, list_receipt_batches, receipt_batch_details,
@@ -73,7 +74,7 @@ def render_monthly_receipt_summary(config):
     cards = []
     for label, field, kind, note in [('本期應收總額', 'total', 'total', '所選帳款期間合計'),
                                      ('已收金額', 'received', 'received', '截至指定日期已登錄收款'),
-                                     ('未收金額', 'balance', 'balance', '本期尚待收取款項')]:
+                                     ('未收金額', 'balance', 'balance', '應收扣除收款，負數為帳面貸方餘額')]:
         amount = sum(r[field] for r in rows)
         cards.append(f'<div class="receivable-card {kind}"><div class="receivable-card-label">{label}</div>'
                      f'<div class="receivable-card-value">{amount:,}</div><div class="receivable-card-note">{note}</div></div>')
@@ -466,8 +467,13 @@ def render_receipt_entry(config):
         st.caption("已付清註記 · 僅供篩選，以下金額仍依實際收款紀錄計算。")
     receipts = list_receipts(config, shipment_id)
     paid = sum((Decimal(r["amount"]) for r in receipts if r["status"] == "active"), Decimal(0))
-    balance = Decimal(document["total_amount"]) - paid
-    st.caption(f"出貨總額 {int(Decimal(document['total_amount'])):,}　已登錄收款 {int(paid):,}　帳面未收餘額 {int(balance):,}")
+    returned = sum(Decimal(row["total_amount"]) for row in list_sales_returns(config, shipment_id)
+                   if row["status"] == "active")
+    balance = Decimal(document["total_amount"]) - returned - paid
+    st.caption(f"出貨總額 {int(Decimal(document['total_amount'])):,}　銷貨退回 {int(returned):,}　"
+               f"已登錄收款 {int(paid):,}　帳面未收餘額 {int(balance):,}")
+    if balance < 0:
+        st.info(f"已收金額超過退回後的應收金額 {int(-balance):,} 元，請核對後續折抵或退款。")
     token_key = "receipt_token_" + shipment_id
     if token_key not in st.session_state:
         st.session_state[token_key] = str(uuid4())

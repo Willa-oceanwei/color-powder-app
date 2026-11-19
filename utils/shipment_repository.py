@@ -300,6 +300,7 @@ def save_shipment(config, document, *, sync_products=False, fill_missing_contact
             """SELECT s.*,
                (SELECT COALESCE(SUM(CAST(amount AS INTEGER)),0) FROM shipment_receipts
                 WHERE shipment_id=s.id AND status='active') AS saved_paid,
+               EXISTS(SELECT 1 FROM sales_returns WHERE shipment_id=s.id AND status='active') AS has_returns,
                (SELECT json_group_array(payload_json) FROM
                 (SELECT payload_json FROM shipment_order_items WHERE shipment_id=s.id ORDER BY line_number)) AS saved_items,
                (SELECT payload_json FROM shipment_invoices WHERE shipment_id=s.id) AS saved_invoice
@@ -332,6 +333,15 @@ def save_shipment(config, document, *, sync_products=False, fill_missing_contact
                 number = _next_number(conn, header["shipment_date"])
         elif not number:
             raise ShipmentError("請輸入出貨單號")
+        if existing and existing.pop("has_returns"):
+            prior = json.loads(existing["payload_json"])
+            protected = ("shipment_date", "customer_id", "account_date", "tax_mode", "tax_rate")
+            line_fields = ("code", "name", "unit", "quantity", "price", "tax_exempt")
+            previous_lines = [tuple(item.get(key, False) for key in line_fields) for item in old_items]
+            new_lines = [tuple(item.get(key, False) for key in line_fields) for item in items]
+            if (number != existing["shipment_number"] or any(header[key] != prior.get(key) for key in protected)
+                    or previous_lines != new_lines or invoice != old_invoice):
+                raise ShipmentError("已有有效退回，不可變更原出貨的單號、日期、客戶、品項、稅別或發票資料")
         if len(number) > 40 or any(char in number for char in ('/', '\\', '\n', '\r')):
             raise ShipmentError("出貨單號最多 40 字，不能含斜線或換行")
         if not existing or number != existing["shipment_number"]:
@@ -463,10 +473,12 @@ def void_shipment(config, shipment_id, version, reason):
     with connect_from_config(config) as conn:
         changed = _mapping(conn.execute("""UPDATE shipment_orders SET status='void',void_reason=?,
                   version=version+1,updated_at=? WHERE id=? AND version=? AND status='draft'
-                  AND NOT EXISTS (SELECT 1 FROM shipment_receipts r WHERE r.shipment_id=shipment_orders.id AND r.status='active') RETURNING id""",
+                  AND NOT EXISTS (SELECT 1 FROM shipment_receipts r WHERE r.shipment_id=shipment_orders.id AND r.status='active')
+                  AND NOT EXISTS (SELECT 1 FROM sales_returns r WHERE r.shipment_id=shipment_orders.id AND r.status='active')
+                  RETURNING id""",
                   (str(reason).strip(), utc_now_iso(), shipment_id, version)))
         if not changed:
-            raise ShipmentError("單據已修改、作廢或有收款紀錄；請重新讀取，已有收款須先作廢收款")
+            raise ShipmentError("單據已修改、作廢或有有效的收款／退回紀錄，請重新讀取並先處理相關單據")
 
 
 def printable_shipment(document, *, show_prices=True, orientation="landscape", feed_rotation=0, hole_margin=0, paper_stock="standard", output_mode="print"):

@@ -28,17 +28,23 @@ def build_statements(config, start, end, customer_start="", customer_end="", hid
     with connect_from_config(config) as conn:
         customers = _mappings(conn.execute(f"SELECT customer_id,name,contact,phone,fax,tax_id FROM customers {where} ORDER BY customer_id", tuple(args)))
         records = _mappings(conn.execute(
-            "SELECT s.id,s.shipment_number,s.shipment_date,s.customer_id,s.customer_name,s.payload_json,"
-            "s.net_amount,s.tax_amount,s.total_amount,i.line_number,i.payload_json AS item_json,"
-            "(SELECT COALESCE(SUM(CAST(r.amount AS INTEGER)),0) FROM shipment_receipts r "
-            "WHERE r.shipment_id=s.id AND r.status='active' AND r.receipt_date<=?) AS received "
-            "FROM shipment_orders s JOIN shipment_order_items i ON i.shipment_id=s.id "
-            "WHERE s.status='draft' AND s.shipment_date>=? "
-            "AND s.shipment_date<=? "
-            + ("AND s.customer_id>=? " if customer_start else "")
-            + ("AND s.customer_id<=? " if customer_end else "")
-            + "ORDER BY s.customer_id,s.shipment_date,s.shipment_number,s.id,i.line_number",
-            tuple([end, start, end] + ([customer_start] if customer_start else []) + ([customer_end] if customer_end else []))))
+            """WITH transactions AS (
+                SELECT s.id,s.shipment_number AS number,s.shipment_date AS transaction_date,s.customer_id,s.customer_name,
+                       s.payload_json,s.net_amount,s.tax_amount,s.total_amount,i.line_number,i.payload_json AS item_json,
+                       (SELECT COALESCE(SUM(CAST(r.amount AS INTEGER)),0) FROM shipment_receipts r
+                        WHERE r.shipment_id=s.id AND r.status='active' AND r.receipt_date<=?) AS received,
+                       NULL AS original_number
+                FROM shipment_orders s JOIN shipment_order_items i ON i.shipment_id=s.id
+                WHERE s.status='draft' AND s.shipment_date BETWEEN ? AND ?
+                UNION ALL
+                SELECT r.id,r.return_number,r.return_date,s.customer_id,s.customer_name,s.payload_json,
+                       r.net_amount,r.tax_amount,r.total_amount,i.key,i.value,0,r.shipment_number
+                FROM sales_returns r JOIN shipment_orders s ON s.id=r.shipment_id JOIN json_each(r.items_json) i
+                WHERE r.status='active' AND r.return_date BETWEEN ? AND ?
+            )
+            SELECT * FROM transactions """
+            + where + " ORDER BY customer_id,transaction_date,original_number IS NOT NULL,number,id,line_number",
+            (end, start, end, start, end, *args)))
     grouped = {c["customer_id"]: dict(customer_id=c["customer_id"], customer_name=c["name"],
                start=start, end=end, documents=[], **{key: c.get(key) or "" for key in ("contact", "phone", "fax", "tax_id")}) for c in customers}
     master_ids = set(grouped)
@@ -48,21 +54,31 @@ def build_statements(config, start, end, customer_start="", customer_end="", hid
         if row["id"] in excluded:
             continue
         header = json.loads(row["payload_json"]) if row["id"] not in documents else None
-        if hide_paid and header and header.get("paid_in_full") in (True, 1):
+        is_return = row["original_number"] is not None
+        if hide_paid and not is_return and header and header.get("paid_in_full") in (True, 1):
             excluded.add(row["id"])
             paid_customers.add(row["customer_id"])
             continue
         statement = grouped.setdefault(row["customer_id"], dict(customer_id=row["customer_id"], customer_name=row["customer_name"],
                     start=start, end=end, documents=[]))
         if row["id"] not in documents:
-            document = dict(id=row["id"], number=row["shipment_number"], date=row["shipment_date"], items=[],
+            document = dict(id=row["id"], number=row["number"], date=row["transaction_date"], items=[],
                             net=row["net_amount"], tax=row["tax_amount"], total=row["total_amount"], received=str(row["received"]))
+            if is_return:
+                document.update(kind="退回", original_number=row["original_number"])
+                for field in ("net", "tax", "total"):
+                    document[field] = str(-Decimal(document[field]))
             documents[row["id"]] = document
             statement["documents"].append(document)
             if row["customer_id"] not in master_ids:
                 for key in ("contact", "phone", "fax", "tax_id"):
                     statement[key] = header.get(key, "")
-        documents[row["id"]]["items"].append(json.loads(row["item_json"]))
+        item = json.loads(row["item_json"])
+        if is_return:
+            for field in ("quantity", "amount"):
+                if item[field] != "":
+                    item[field] = str(-Decimal(item[field]))
+        documents[row["id"]]["items"].append(item)
     result = []
     for code in sorted(grouped):
         statement = grouped[code]
@@ -104,6 +120,10 @@ def monthly_receipt_summary(config, start, end, as_of):
             "WHERE r.shipment_id=s.id AND r.status='active' AND CAST(r.amount AS INTEGER)>0 AND r.receipt_date<=?) AS last_receipt "
             "FROM shipment_orders s WHERE s.status='draft' AND s.shipment_date>=? AND s.shipment_date<=?",
             (as_of, as_of, start, min(end, as_of))))
+        returns = _mappings(conn.execute(
+            "SELECT s.customer_id,r.total_amount FROM sales_returns r JOIN shipment_orders s ON s.id=r.shipment_id "
+            "WHERE r.status='active' AND r.return_date BETWEEN ? AND ?", (start, min(end, as_of)),
+        ))
     tracking = {}
     for row in tracking_rows:
         request = json.loads(row['request_json']) if row['request_json'] else {}
@@ -117,10 +137,13 @@ def monthly_receipt_summary(config, start, end, as_of):
         row['total'] += int(document['total_amount'])
         row['received'] += int(document['received'])
         row['last_receipt'] = max(row['last_receipt'], document['last_receipt'] or '')
+    for record in returns:
+        summary[record['customer_id']]['total'] -= int(record['total_amount'])
     for row in summary.values():
         row['balance'] = row['total'] - row['received']
-        row['status'] = ('本期無帳款' if not row['total'] else '尚未開始登錄' if not row['tracking_start'] else
-                         '已收齊' if not row['balance'] else '部分收款' if row['received'] else '未收款')
+        row['status'] = ('帳面貸方餘額' if row['balance'] < 0 else '本期無帳款' if not row['total'] else
+                         '尚未開始登錄' if not row['tracking_start'] else '已收齊' if not row['balance'] else
+                         '部分收款' if row['received'] else '未收款')
     return list(summary.values())
 
 
@@ -140,7 +163,7 @@ def statement_pages(statements, capacity=None, *, paper_size="auto", name_width=
     for statement in statements:
         rows, context = [], []
         for document in statement["documents"]:
-            header = ["出貨", document["date"].replace("-", "/"), document["number"]] + [""] * 7
+            header = [document.get("kind", "出貨"), document["date"].replace("-", "/"), document["number"]] + [""] * 7
             rows.append(header)
             context.append(header)
             for item in document["items"]:
