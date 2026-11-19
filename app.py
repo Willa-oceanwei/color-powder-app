@@ -1297,7 +1297,7 @@ def render_sidebar():
         {"group":"生產","key":"配方管理","label":"配方管理"},
         {"group":"生產","key":"代工管理","label":"代工管理"},
         {"group":"會計","key":"出貨單","label":"出貨單"},
-        {"group":"會計","key":"銷貨退回","label":"銷貨退回"},
+        {"group":"會計","section":"其他會計功能","key":"銷貨退回","label":"銷貨退回"},
         {"group":"會計","section":"應收帳款","key":"應收帳款明細表","label":"應收帳款"},
         {"group":"會計","section":"應收帳款","key":"預告報價","label":"預告報價"},
         {"group":"會計","section":"各式明細","key":"客戶交易明細","label":"客戶交易明細"},
@@ -1368,12 +1368,10 @@ def render_sidebar():
                     render_items([item for item in items if "section" not in item])
                     other_items = [item for item in items if "section" in item]
                     with st.expander("其他會計功能", expanded=any(item["key"] == st.session_state.menu for item in other_items)):
-                        for section in ("應收帳款", "各式明細", "設定選項"):
-                            if section == "應收帳款":
-                                render_items([item for item in other_items if item.get("section") == section])
-                            else:
+                        for section in ("其他會計功能", "應收帳款", "各式明細", "設定選項"):
+                            if section in ("各式明細", "設定選項"):
                                 st.markdown(f"<div class='erp-group'>{section}</div>", unsafe_allow_html=True)
-                                render_items([item for item in other_items if item.get("section") == section])
+                            render_items([item for item in other_items if item["section"] == section])
                 else:
                     render_items(items)
             else:
