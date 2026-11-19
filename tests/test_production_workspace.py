@@ -7,6 +7,7 @@ from streamlit.testing.v1 import AppTest
 from streamlit.runtime.scriptrunner import ScriptRunnerEvent
 from streamlit.testing.v1.local_script_runner import LocalScriptRunner
 
+from utils.color_powder_repository import ColorPowderInput, create_color_powder
 from utils.database import DatabaseConfig, connect_from_config, initialize_database
 from utils.production_order_repository import create_production_order, list_production_orders
 from utils.recipe_repository import create_recipe
@@ -125,6 +126,33 @@ def test_verified_historical_preview_is_display_only(production_config):
     saved = list_production_orders(production_config, include_recipe_snapshot=True)[0]
     assert saved["顏色"] == "Blue"
     assert not saved["_recipe_snapshot_json"]
+
+
+def test_saving_actual_kg_edit_updates_preview(production_config):
+    create_color_powder(production_config, ColorPowderInput("900"))
+    create_recipe(production_config, {
+        "配方編號": "R003", "顏色": "Black", "色粉類別": "色母", "配方類別": "原始配方",
+        "計量單位": "kg", "淨重": "100000", "色粉編號1": "900", "色粉重量1": "1000",
+    })
+    create_production_order(production_config, {
+        "生產單號": "P003", "配方編號": "R003", "顏色": "Black", "色粉類別": "色母",
+        "生產日期": "2026-10-20", "包裝重量1": "2", "包裝份數1": "1",
+    })
+    app = workspace_app(production_config, "manage")
+    app.session_state["qa_selected_manage_id"] = "P003"
+    app.run(timeout=30)
+    assert any("200K × 1" in item.proto.srcdoc for item in app.get("iframe"))
+
+    app.button(key="edit_order_btn_tab3").click().run()
+    app.toggle(key="edit_colorant_quantity_mode_tab3").set_value(True).run()
+    app.button(key="save_edit_button_tab3").click().run()
+
+    assert not app.exception
+    saved = next(order for order in list_production_orders(production_config) if order["生產單號"] == "P003")
+    assert saved["出貨數量顯示方式"] == "實際公斤（1 = 1kg）"
+    preview = next(item.proto.srcdoc for item in app.get("iframe") if "2K × 1" in item.proto.srcdoc)
+    assert "200K × 1" not in preview
+    assert "2000" in preview
 
 
 def test_number_search_previews_first_order_then_allows_manual_selection(production_config):

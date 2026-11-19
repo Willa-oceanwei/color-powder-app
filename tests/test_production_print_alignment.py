@@ -10,7 +10,9 @@ from utils.paper_preview import build_paper_preview
 def print_functions():
     module = ast.parse(Path("app.py").read_text(encoding="utf-8"))
     functions = [node for node in module.body if isinstance(node, ast.FunctionDef)
-                 and node.name in {"generate_production_order_print", "generate_print_page_content"}]
+                 and node.name in {
+                     "colorant_shipment_display_multiplier", "generate_production_order_print", "generate_print_page_content",
+                 }]
     namespace = {}
     exec(compile(ast.Module(body=functions, type_ignores=[]), "app.py", "exec"), namespace)
     return namespace

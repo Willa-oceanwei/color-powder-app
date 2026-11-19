@@ -2336,7 +2336,7 @@ def calc_packs_total_kg(order_row):
     return packs_total
 
 def colorant_shipment_display_multiplier(order_row):
-    """Return the multiplier used only by the production-order record display.
+    """Return the display multiplier for colorant package weights.
 
     Existing orders did not store this field and historically used 100 kg per
     entered unit, so a missing value deliberately keeps that behaviour.
@@ -2702,6 +2702,9 @@ def generate_production_order_print(
     
     # Display-only fallback for older orders; keep calculation category unchanged.
     package_category = category or str(recipe_row.get("色粉類別") or "").strip()
+    package_display_multiplier = (
+        colorant_shipment_display_multiplier(order) if package_category == "色母" else None
+    )
 
     # 包裝列
     pack_line = []
@@ -2710,10 +2713,10 @@ def generate_production_order_print(
         c = packing_counts[i]
         if w > 0 or c > 0:
             if package_category == "色母":
-                if w == 1:
-                    unit_str = "100K"
+                if package_display_multiplier == 1:
+                    unit_str = f"{w:g}K"
                 else:
-                    real_w = w * 100
+                    real_w = w * package_display_multiplier
                     unit_str = f"{int(real_w)}K" if real_w == int(real_w) else f"{real_w:.1f}K"
             elif unit == "包":
                 real_w = w * 25
@@ -2888,10 +2891,13 @@ def generate_order_preview_text(order, recipe_row, additional_recipe_rows, show_
         id_col_width = 14
         value_col_width = 12
         active_pack_cols = []
+        package_display_multiplier = colorant_shipment_display_multiplier(order)
         for w, c in zip(pack_weights_display, pack_counts_display):
             if w > 0 and c > 0:
-                val = 100 if abs(w - 1.0) < 1e-9 else int(w * 100)
-                active_pack_cols.append(f"{val}K × {int(c)}")
+                weight_text = f"{w:g}" if package_display_multiplier == 1 else str(
+                    100 if abs(w - 1.0) < 1e-9 else int(w * package_display_multiplier)
+                )
+                active_pack_cols.append(f"{weight_text}K × {int(c)}")
 
         if active_pack_cols:
             pack_line = (" " * id_col_width) + "".join(
@@ -6671,14 +6677,14 @@ def render_production_order_workspace():
                         order.get("出貨數量顯示方式") or order.get("色母數量模式")
                     ) == "實際公斤（1 = 1kg）",
                     key="form_colorant_quantity_mode_tab1",
-                    help="此選項只改變生產單記錄表的顯示文字，不影響庫存、配方、標籤或代工數量計算。",
+                    help="開啟後，記錄表及生產單預覽／列印以實際公斤顯示包裝重量。",
                 )
                 colorant_quantity_mode = (
                     "實際公斤（1 = 1kg）"
                     if display_as_actual_kg
                     else "100kg 倍率（1 = 100kg）"
                 )
-                st.caption("💡 只影響記錄表：選「實際公斤」後輸入 1，出貨數量顯示 1kg；其餘計算維持原邏輯。")
+                st.caption("💡 選「實際公斤」後輸入 1，記錄表及生產單預覽／列印會以 1 公斤顯示包裝重量。")
             else:
                 colorant_quantity_mode = ""
 
@@ -7900,7 +7906,7 @@ def render_production_order_workspace():
                 edit_display_as_actual_kg = st.toggle(
                     "實際公斤顯示（關閉：1 = 100kg／開啟：1 = 1kg）",
                     key="edit_colorant_quantity_mode_tab3",
-                    help="只改變記錄表顯示；舊單未記錄時維持顯示 100kg 倍率。",
+                    help="儲存後套用至記錄表及生產單預覽／列印的包裝重量。舊單未設定時使用 100kg 倍率。",
                 )
                 edit_colorant_quantity_mode = (
                     "實際公斤（1 = 1kg）"
@@ -7973,6 +7979,8 @@ def render_production_order_workspace():
                                 update_outsourcing_order(DATABASE_CONFIG, linked_order)
 
                         # 同步更新本地 df_order
+                        if "出貨數量顯示方式" not in df_order.columns:
+                            df_order["出貨數量顯示方式"] = ""
                         mask = df_order["生產單號"] == order_no
                         for key, val in updated_order_dict.items():
                             if key in df_order.columns:

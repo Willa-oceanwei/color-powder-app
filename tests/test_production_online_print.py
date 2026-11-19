@@ -11,7 +11,7 @@ from utils.production_print_preview import build_production_order_preview
 def _source_document(order_overrides=None):
     module = ast.parse(Path("app.py").read_text(encoding="utf-8"))
     functions = [n for n in module.body if isinstance(n, ast.FunctionDef) and n.name in
-                 {"generate_production_order_print", "generate_print_page_content"}]
+                 {"colorant_shipment_display_multiplier", "generate_production_order_print", "generate_print_page_content"}]
     namespace = {}
     exec(compile(ast.Module(body=functions, type_ignores=[]), "app.py", "exec"), namespace)
     order = {"配方編號": "69939BM", "顏色": "綠", "建立時間": "2026-10-29 09:00",
