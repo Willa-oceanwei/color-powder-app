@@ -45,6 +45,9 @@ COMPACT_STYLE = """
 :is(.stMain, section.main):has(#shipment-page) [data-testid="stHorizontalBlock"] {gap:8px!important;}
 :is(.stMain, section.main):has(#shipment-page) h3 {font-size:18px!important;margin:0!important;padding:0!important;}
 :is(.stMain, section.main):has(#shipment-page) [data-testid="stWidgetLabel"] p {font-size:12px!important;margin-bottom:0!important;}
+.shipment-read-field {display:grid;gap:3px;font-size:12px;min-width:0;}
+.shipment-read-value {display:flex;align-items:center;min-height:32px;padding:4px 8px;
+  border:1px solid #527086;border-radius:4px;font-size:13px;overflow-wrap:anywhere;}
 :is(.stMain, section.main):has(#shipment-page) [data-testid="stTextInput"] input,
 :is(.stMain, section.main):has(#shipment-page) [data-testid="stDateInput"] input,
 :is(.stMain, section.main):has(#shipment-page) [data-testid="stNumberInput"] input {font-size:13px!important;min-height:28px!important;padding-top:2px!important;padding-bottom:2px!important;}
@@ -117,6 +120,14 @@ body:has(.erp-title):has(#shipment-page) [data-testid="stPopoverBody"] button {b
 }
 </style>
 """
+
+
+def _readonly_field(label, value):
+    st.markdown(
+        f'<div class="shipment-read-field"><span>{escape(label)}</span>'
+        f'<span class="shipment-read-value">{escape(str(value) if value not in (None, "") else "—")}</span></div>',
+        unsafe_allow_html=True,
+    )
 
 
 def _rerun_shipment():
@@ -626,35 +637,40 @@ def render_shipment_management(config, *, start_new_on_entry=False):
 
     def text(label, key, *, target=None):
         data = document if target is None else target
-        widget_key = prefix + ("invoice_" if target is not None else "") + key
         previous = str(data.get(key) or "")
-        value = st.text_input(label, value=widget_default(widget_key, previous), key=widget_key, disabled=not editing)
-        if editing:
-            if target is None and key in CONTACT_FIELDS and value != previous:
-                document.setdefault("_cleared_contacts", {})[key] = not value.strip()
-            data[key] = value
+        if not editing:
+            _readonly_field(label, previous)
+            return
+        widget_key = prefix + ("invoice_" if target is not None else "") + key
+        value = st.text_input(label, value=widget_default(widget_key, previous), key=widget_key)
+        if target is None and key in CONTACT_FIELDS and value != previous:
+            document.setdefault("_cleared_contacts", {})[key] = not value.strip()
+        data[key] = value
 
     def date_field(label, key, *, target=None, optional=False):
         data = document if target is None else target
         value = date.fromisoformat(data[key]) if data.get(key) else None if optional else date.today()
+        if not editing:
+            _readonly_field(label, value.strftime("%Y/%m/%d") if value else "")
+            return
         widget_key = prefix + ("invoice_" if target is not None else "") + key
-        value = st.date_input(label, value=widget_default(widget_key, value), key=widget_key, disabled=not editing)
-        if editing:
-            data[key] = value.isoformat() if value else ""
-            if value is None and not optional:
-                st.error(f"請輸入{label}")
+        value = st.date_input(label, value=widget_default(widget_key, value), key=widget_key)
+        data[key] = value.isoformat() if value else ""
+        if value is None and not optional:
+            st.error(f"請輸入{label}")
 
     def invoice_choice(label, field, options):
         invoice = document["invoice"]
-        current = invoice.get(field) or (options[0] if editing and not document.get("id") else "")
+        if not editing:
+            _readonly_field(label, invoice.get(field))
+            return
+        current = invoice.get(field) or (options[0] if not document.get("id") else "")
         choices = [""] + list(options)
         if current and current not in choices:
             choices.append(current)
         widget_key = prefix + "invoice_" + field
-        selected = st.selectbox(label, choices, index=widget_index(widget_key, current),
-                                format_func=lambda value: value or "請選擇", key=widget_key, disabled=not editing)
-        if editing:
-            invoice[field] = selected
+        invoice[field] = st.selectbox(label, choices, index=widget_index(widget_key, current),
+                                     format_func=lambda value: value or "請選擇", key=widget_key)
 
     if editing:
         loaders = {"customers": lambda: list_customers(config, include_inactive=True)}
@@ -675,23 +691,17 @@ def render_shipment_management(config, *, start_new_on_entry=False):
     with header[0]:
         date_field("出貨日期", "shipment_date")
     with header[1]:
-        mode = st.selectbox("單號方式", ("依日期生成", "自行輸入"),
-                            index=widget_index(prefix + "number_mode", "依日期生成" if document.get("number_mode") == "date" else "自行輸入"),
-                            key=prefix + "number_mode", disabled=not editing)
+        current_mode = "依日期生成" if document.get("number_mode") == "date" else "自行輸入"
         if editing:
+            mode = st.selectbox("單號方式", ("依日期生成", "自行輸入"),
+                                index=widget_index(prefix + "number_mode", current_mode), key=prefix + "number_mode")
             document["number_mode"] = "date" if mode == "依日期生成" else "manual"
-    with header[2]:
-        if editing:
-            text("出貨單號", "shipment_number")
-            if document["number_mode"] == "date":
-                st.markdown('<p class="shipment-number-help">留白自動編號；填入用指定單號。</p>', unsafe_allow_html=True)
         else:
-            retained = document.get("shipment_number", "")
-            original = st.session_state.get("shipment_original", {})
-            if editing and (not document.get("id") or original.get("number_mode") != "date" or document["shipment_date"] != original.get("shipment_date")):
-                retained = ""
-            preview = retained or (date.fromisoformat(document["shipment_date"]).strftime("%y%m%d") + "####" if document["shipment_date"] else "請先選擇出貨日期")
-            st.text_input("出貨單號", value=preview, disabled=True)
+            _readonly_field("單號方式", current_mode)
+    with header[2]:
+        text("出貨單號", "shipment_number")
+        if editing and document["number_mode"] == "date":
+            st.markdown('<p class="shipment-number-help">留白自動編號；填入用指定單號。</p>', unsafe_allow_html=True)
     with header[3]:
         if editing:
             available = {row["customer_id"]: customer_display_name(row) for row in customers if row["lifecycle_status"] == "active"}
@@ -728,7 +738,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                 for field in ("recipient_id", "recipient_name", *CONTACT_FIELDS):
                     st.session_state[prefix + field] = document[field]
         else:
-            st.text_input("客戶", value=f"{document['customer_id']} · {current_customer_label()}", disabled=True)
+            _readonly_field("客戶", f"{document['customer_id']} · {current_customer_label()}")
     st.markdown('<div class="shipment-section delivery">送貨資訊</div>', unsafe_allow_html=True)
     receiver = st.columns([1.2, 1.8, 4])
     for col, label, field in zip(receiver, ("指送對象編號", "指送對象名稱", "送貨地址"), ("recipient_id", "recipient_name", "address")):
@@ -895,10 +905,13 @@ def render_shipment_management(config, *, start_new_on_entry=False):
             invoice = document["invoice"]
             row = st.columns(3)
             with row[0]:
-                mode = st.selectbox("課稅類別", TAX_MODES, index=widget_index(prefix + "tax_mode", document["tax_mode"]), key=prefix + "tax_mode", disabled=not editing,
-                                    on_change=_tax_changed, args=(prefix, "mode"))
                 if editing:
-                    document["tax_mode"] = mode
+                    document["tax_mode"] = st.selectbox(
+                        "課稅類別", TAX_MODES, index=widget_index(prefix + "tax_mode", document["tax_mode"]),
+                        key=prefix + "tax_mode", on_change=_tax_changed, args=(prefix, "mode"),
+                    )
+                else:
+                    _readonly_field("課稅類別", document["tax_mode"])
                 invoice_choice("開立方式", "method", ("隨單開立", "月結開立"))
             with row[1]:
                 date_field("發票日期", "date", target=invoice, optional=True)
@@ -918,11 +931,10 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                             pass
                         else:
                             st.session_state[amount_key] = str(tax)
-                amount = st.text_input("發票金額", value=widget_default(amount_key, invoice.get("amount", "")),
-                                       key=amount_key, disabled=not editing,
-                                       on_change=_invoice_amount_changed, args=(prefix,))
-                if editing:
-                    invoice["amount"] = amount
+                    invoice["amount"] = st.text_input("發票金額", value=widget_default(amount_key, invoice.get("amount", "")),
+                                                      key=amount_key, on_change=_invoice_amount_changed, args=(prefix,))
+                else:
+                    _readonly_field("發票金額", invoice.get("amount"))
         with account:
             left, right = st.columns(2)
             with left:
@@ -947,7 +959,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                                 key=prefix + "tax_rate", on_change=_tax_changed, args=(prefix, "rate"))
             document["tax_rate"] = str(rate)
         else:
-            st.text_input("稅率", value=f"{float(document['tax_rate']):g}%", disabled=True)
+            _readonly_field("稅率", f"{float(document['tax_rate']):g}%")
         if missing_prices:
             st.caption("有品項待報價；合計僅包含已填單價的品項。")
         try:
