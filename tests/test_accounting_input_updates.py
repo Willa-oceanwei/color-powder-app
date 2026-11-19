@@ -116,7 +116,7 @@ render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(confi
 ''').run(timeout=30)
     next(b for b in app.button if b.label == "查詢").click().run()
     assert not app.exception and "shipment_draft" not in app.session_state
-    result = next(frame.value for frame in app.dataframe if "總計（未稅）" in frame.value.columns)
+    result = next(frame.value for frame in app.table if "總計（未稅）" in frame.value.columns)
     assert result.iloc[0]["總計（未稅）"] == 200 and saved["total_amount"] == "210"
     assert not app.button(key="shipment_edit").disabled and not app.button(key="shipment_copy").disabled
     app.button(key="shipment_edit").click().run()
