@@ -85,7 +85,7 @@ def _render_history(config, shipment, returns, last_active):
             if record is last_active:
                 with st.form(f"sales_return_void_{record['id']}_{shipment['version']}"):
                     reason = st.text_input("作廢原因")
-                    confirmed = st.checkbox("確認作廢此退回單")
+                    confirmed = st.toggle("確認作廢此退回單")
                     submitted = st.form_submit_button("作廢退回單")
                 if submitted and not confirmed:
                     st.warning("請先勾選確認作廢。")

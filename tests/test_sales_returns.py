@@ -148,7 +148,7 @@ render_sales_returns(DatabaseConfig(backend='sqlite', path=Path({str(self.config
         self.assertFalse(app.exception)
         self.assertIn("已儲存退回單", app.success[0].value)
         next(widget for widget in app.text_input if widget.label == "作廢原因").set_value("測試作廢")
-        app.checkbox[0].set_value(True)
+        app.toggle[0].set_value(True)
         next(widget for widget in app.button if widget.label == "作廢退回單").click().run()
         self.assertFalse(app.exception)
         self.assertIn("已作廢退回單", app.success[0].value)
