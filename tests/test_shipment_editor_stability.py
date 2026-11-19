@@ -78,6 +78,24 @@ render_shipment_management(DatabaseConfig(backend="sqlite",path=Path({str(config
     assert saved["items"][0]["quantity"] == "3.0"
     assert saved["items"][0]["order_number"] == "PO-1"
     assert saved["total_amount"] == "315"
+    # The saved view keeps the items visible. The editable canvas and print
+    # iframe are available on demand instead of both being built during save.
+    assert not app.get("arrow_data_frame")
+    assert len(app.table) == 1 and app.table[0].value.iloc[0]["品名"] == "Custom Blue"
+    item_prefix = f"shipment_view_{saved['id']}_{saved['version']}_"
+    app.toggle(key=item_prefix + "edit_item_notes").set_value(True).run()
+    assert any(element.proto.id.endswith(item_prefix + "item_notes") for element in app.get("arrow_data_frame"))
+
+    app.button(key="shipment_edit").click().run()
+    app.toggle(key="shipment_print_preview").set_value(True).run()
+    assert app.get("iframe")
+    app.button(key="shipment_save").click().run()
+    assert not app.exception and not app.get("iframe")
+    assert not app.toggle(key="shipment_print_preview").value
+    assert not app.get("arrow_data_frame")
+    app.toggle(key="shipment_print_preview").set_value(True).run()
+    assert not app.exception and app.get("iframe")
+
     # Saving or preparing a file while a code needs automatic completion must
     # survive the one necessary grid refresh, rather than drop the action.
     for number, action in (("002", "shipment_save"), ("003", "shipment_prepare_draft_export")):
