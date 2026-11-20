@@ -87,6 +87,7 @@ def test_ambiguous_match_button_survives_rerun_apply_and_save(tmp_path):
     for code in ("P1A", "P1B"):
         create_recipe(config, {"配方編號": code, "顏色": "Blue", "客戶編號": "C01", "計量單位": "KG"})
     app.button(key="shipment_edit").click().run()
+    app.button(key="shipment_edit_items").click().run()
     assert not app.exception
     prefix = f"shipment_{app.session_state['shipment_epoch']}_"
     app.text_area(key=prefix + "notes").set_value("Preserve pending match").run()
@@ -117,6 +118,7 @@ def test_save_click_survives_interrupted_render_without_second_click(tmp_path, m
     import streamlit as st
     config, saved, app = _editing_app(tmp_path)
     app.button(key="shipment_edit").click().run()
+    app.button(key="shipment_edit_items").click().run()
     original = ui.render_shipment_quote_notices
     interrupted = []
     writes = []
@@ -168,6 +170,7 @@ def test_save_with_latest_note_goes_directly_to_saved_view(tmp_path, monkeypatch
 
     config, saved, app = _editing_app(tmp_path)
     app.button(key="shipment_edit").click().run()
+    assert app.table and not app.get("arrow_data_frame")
     prefix = f"shipment_{app.session_state['shipment_epoch']}_"
     editor_runs = []
     monkeypatch.setattr(ui, "render_shipment_quote_notices", lambda *args: editor_runs.append(True))
@@ -178,6 +181,7 @@ def test_save_with_latest_note_goes_directly_to_saved_view(tmp_path, monkeypatch
     assert "shipment_draft" not in app.session_state
     current = get_shipment(config, saved["id"])
     assert current["notes"] == "Last input" and current["version"] == 2
+    assert current["items"] == saved["items"]
 
     # The immediate Edit must reuse its product index and only look up the
     # selected customer. A full customer or catalog read blocks this screen.
@@ -191,11 +195,14 @@ def test_save_with_latest_note_goes_directly_to_saved_view(tmp_path, monkeypatch
     monkeypatch.setattr(ui, "get_customer", get_customer)
     app.button(key="shipment_edit").click().run()
     assert not app.exception
+    assert app.table and not app.get("arrow_data_frame")
     assert app.session_state["shipment_draft"]["notes"] == "Last input"
     assert app.session_state["shipment_product_matcher"] is catalog
     list_customers.assert_not_called()
     shipment_choices.assert_not_called()
     get_customer.assert_called_once_with(config, "C01")
+    app.button(key="shipment_edit_items").click().run()
+    assert not app.exception and app.get("arrow_data_frame")
 
 
 def test_save_conflict_preserves_current_draft(tmp_path):
@@ -298,6 +305,7 @@ def test_save_after_auto_completion_reads_later_fields_in_same_render(tmp_path, 
     config, saved, app = _editing_app(tmp_path)
     create_recipe(config, {"配方編號": "R1", "顏色": "White", "客戶編號": "C01", "計量單位": "KG"})
     app.button(key="shipment_edit").click().run()
+    app.button(key="shipment_edit_items").click().run()
     prefix = f"shipment_{app.session_state['shipment_epoch']}_"
     app.session_state[prefix + "items"] = {
         "edited_rows": {0: {"貨品編號": "R1", "品名": "", "單位": "", "單價": 0.0}},
@@ -347,6 +355,7 @@ def test_rebased_grid_is_mounted_after_failed_save_or_export(tmp_path):
         config, saved, app = _editing_app(directory)
         create_recipe(config, {"配方編號": "R1", "顏色": "White", "客戶編號": "C01", "計量單位": "KG"})
         app.button(key="shipment_edit").click().run()
+        app.button(key="shipment_edit_items").click().run()
         prefix = f"shipment_{app.session_state['shipment_epoch']}_"
         app.session_state[prefix + "items"] = {
             "edited_rows": {0: {"貨品編號": "R1", "品名": "", "單位": "", "單價": 0.0}},

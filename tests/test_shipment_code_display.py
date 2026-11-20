@@ -77,6 +77,7 @@ from utils.shipment_ui import render_shipment_management
 render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(config.path)!r})))
 ''').run(timeout=30)
     app.button(key="shipment_edit").click().run()
+    app.button(key="shipment_edit_items").click().run()
     choice = next(w for w in app.selectbox if w.label.startswith("第 1 項"))
     assert choice.value == "0757"
     choice.set_value("C0757").run()

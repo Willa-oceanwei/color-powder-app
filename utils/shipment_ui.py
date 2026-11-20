@@ -141,6 +141,8 @@ SHIPMENT_SAVE_AFTER_GRID_EDIT = """
         if (!event.isTrusted || !button || button.disabled || !scope) return;
         const draft = Array.from(scope.classList).find(name => name.startsWith(scopePrefix));
         if (!draft) return;
+        const epoch = draft.slice(scopePrefix.length);
+        if (!page.querySelector('[class*="st-key-shipment_' + epoch + '_items"]')) return;
         event.preventDefault();
         event.stopImmediatePropagation();
         if (pending.has(draft)) return;
@@ -176,6 +178,11 @@ def _rerun_shipment():
 def _request_shipment_save():
     """Retain the click until a complete render can validate and save the draft."""
     st.session_state.shipment_pending_save = True
+
+
+def _return_to_item_prices(confirmation_key, editor_key):
+    st.session_state.pop(confirmation_key, None)
+    st.session_state[editor_key] = True
 
 
 def _missing_prices(document):
@@ -1036,7 +1043,6 @@ def render_shipment_management(config, *, start_new_on_entry=False):
             text(label, field)
     with print_controls[2]:
         render_purchase_history(config, document["customer_id"], current_customer_label())
-    source_items = st.session_state.get("shipment_editor_base", document["items"]) if editing else document["items"]
     if editing:
         item_header = st.columns([3, 1.2, 1.2], vertical_alignment="center")
         with item_header[0]:
@@ -1046,6 +1052,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
     product_search_panel = st.container()
     requested_item = None
     editor_rebased = False
+    editing_items = False
     if editing:
         item_tools = item_header[1:]
         history_key = ("history", document["customer_id"], document["shipment_date"], document.get("id", ""))
@@ -1055,6 +1062,13 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                            lambda: shipment_choices(config, document["customer_id"], all_recipes=True)) if document["customer_id"] else {}
         matcher = editing_product_matcher(st.session_state, all_choices)
         search_open = item_tools[0].toggle("搜尋貨品", key=prefix + "show_product_search")
+        item_editor_key = prefix + "item_editor_open"
+        if search_open:
+            st.session_state[item_editor_key] = True
+        editing_items = not document.get("id") or st.session_state.get(item_editor_key, False)
+        if not editing_items:
+            item_tools[1].button("修改品項", key="shipment_edit_items", use_container_width=True,
+                                 on_click=st.session_state.update, kwargs={item_editor_key: True})
         if search_open:
             with product_search_panel:
                 query = st.text_input("貨品編號／品名", key=prefix + "product_search_query").strip().casefold()
@@ -1096,6 +1110,8 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                 if add_col.button("加入", key="shipment_add_recipe", disabled=not code or not unit, use_container_width=True):
                     requested_item = dict(code=code, name=defaults.get("name") or chosen["name"], quantity=str(quantity), unit=unit,
                                           price=price, tax_exempt=bool(defaults.get("tax_exempt", False)), order_number="", notes="")
+    source_items = (st.session_state.get("shipment_editor_base", document["items"])
+                    if editing_items else document["items"])
     frame = pd.DataFrame(source_items, columns=list(COLUMNS)).rename(columns=COLUMNS)
     # Pandas 3 infers Arrow large_string; older Streamlit editors make it read-only.
     for column in ("貨品編號", "品名", "單位", "採購單號", "附註說明", "顯示編號"):
@@ -1103,7 +1119,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
     frame["免稅"] = frame["免稅"].fillna(False).astype(bool)
     for column in ("數量", "單價"):
         frame[column] = pd.to_numeric(frame[column], errors="coerce").astype(float)
-    if editing:
+    if editing_items:
         grid_suffix = st.session_state.get("shipment_grid_epoch", 0)
         frame = st.data_editor(frame.drop(columns="金額"), key=prefix + "items" + (f"_{grid_suffix}" if grid_suffix else ""), num_rows="dynamic", height=185,
                                use_container_width=True, hide_index=True, column_config={
@@ -1161,11 +1177,11 @@ def render_shipment_management(config, *, start_new_on_entry=False):
     else:
         frame["貨品編號"] = [printed_code(item) for item in document["items"]]
         frame = frame.drop(columns="顯示編號")
-        edit_item_notes = document["status"] != "void" and st.toggle(
+        edit_item_notes = not editing and document["status"] != "void" and st.toggle(
             "編輯品項附註", key=f"shipment_view_{document['id']}_edit_item_notes",
         )
         if not edit_item_notes:
-            # Browsing and switching orders use a static table.
+            # Viewing an order and editing only its header use the same static table.
             for column in ("數量", "單價"):
                 frame[column] = frame[column].map(display_price, na_action="ignore").fillna("")
             frame["金額"] = frame["金額"].map(display_amount)
@@ -1304,7 +1320,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                 confirm, cancel = st.columns(2)
                 save_clicked = confirm.button("確認留白並儲存", key="shipment_confirm_blank_prices", type="primary")
                 if cancel.button("返回填寫單價", key="shipment_cancel_blank_prices",
-                                 on_click=st.session_state.pop, args=(confirmation_key, None)):
+                                 on_click=_return_to_item_prices, args=(confirmation_key, item_editor_key)):
                     save_clicked = False
                 if save_clicked:
                     st.session_state.pop(confirmation_key, None)
@@ -1327,8 +1343,10 @@ def render_shipment_management(config, *, start_new_on_entry=False):
             st.session_state.shipment_action_error = save_error
         _rerun_shipment()
     if editing:
+        grid_suffix = st.session_state.get("shipment_grid_epoch", 0)
         grid_key = prefix + "items" + (f"_{grid_suffix}" if grid_suffix else "")
-        watched = (grid_key, *(prefix + key for key in ("shipment_date", "customer_picker", "tax_mode", "tax_rate")))
+        watched = (grid_key, item_editor_key,
+                   *(prefix + key for key in ("shipment_date", "customer_picker", "tax_mode", "tax_rate")))
         st.session_state.shipment_save_checkpoint = (
             (repr(config), prefix, grid_suffix),
             {key: deepcopy(st.session_state.get(key)) for key in watched},
