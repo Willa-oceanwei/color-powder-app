@@ -31,6 +31,18 @@ def document():
     return result
 
 
+def test_resave_fills_new_customer_contacts_and_respects_explicit_blanks(config):
+    original = save_shipment(config, document())
+    update_customer(config, CustomerInput(
+        "C01", "範例客戶", address="客戶地址", contact="新聯絡人", phone="02-12345678",
+    ))
+    edited = dict(original, _cleared_contacts={"phone": True})
+    saved = save_shipment(config, edited, fill_missing_contacts=("address", "contact", "phone"))
+    assert saved["address"] == ""  # The document has a separate recipient.
+    assert saved["contact"] == "新聯絡人" and saved["phone"] == ""
+    assert get_shipment(config, saved["id"])["_cleared_contacts"] == {"phone": True}
+
+
 def test_compact_price_history_preserves_prices_defaults_and_old_names(config):
     from utils.shipment_repository import shipment_price_history
     from utils.shipment_catalog import matching_products, recent_item_defaults

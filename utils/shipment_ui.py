@@ -15,7 +15,9 @@ from streamlit.runtime.scriptrunner import get_script_run_ctx
 from .shipment_catalog import shipment_choices, complete_items, recent_item_defaults, editing_product_matcher
 from .shipment_print import display_amount, display_price
 from .paper_preview import theme_preview
-from .shipment_page_data import cached_read, clear_reads, preload_edit_reads, shipment_timing, timed_read
+from .shipment_page_data import (
+    cached_read, clear_reads, discard_catalog, edit_read_is_fresh, preload_edit_reads, shipment_timing, timed_read,
+)
 from .shipment_history_ui import render_purchase_history
 from .scheduled_quote_ui import render_shipment_quote_notices
 from .shipment_search_print import render_search_print
@@ -235,6 +237,7 @@ def _commit_shipment_draft(config, document, customers, matcher, *, sync_product
                             shipment_customer_start="", shipment_customer_end="", shipment_search_epoch=0)
     customer = next((row for row in customers if row["customer_id"] == saved["customer_id"]), {})
     _finish("已儲存出貨單 " + saved["shipment_number"], rerun=rerun, invalidate_reports=True,
+            keep_catalog=not sync_products,
             saved_view={"config": repr(config), "document": saved,
                         "customer_label": customer_display_name(customer) or saved["customer_name"]})
 
@@ -298,8 +301,10 @@ def _begin(document, *, rerun=True):
                 "shipment_blank_price_confirmation", "shipment_blank_price_toast"):
         st.session_state.pop(key, None)
     saved_view = st.session_state.pop("shipment_saved_view", None)
-    st.session_state.shipment_cancel_view = (
-        saved_view if saved_view and saved_view["document"].get("id") == document.get("id") else None)
+    reopening_saved = bool(saved_view and saved_view["document"].get("id") == document.get("id"))
+    st.session_state.shipment_cancel_view = saved_view if reopening_saved else None
+    if not reopening_saved:
+        discard_catalog(st.session_state)
     st.session_state.pop("shipment_saved_nav_direction", None)
     st.session_state.pop("shipment_read_cache", None)
     st.session_state.shipment_draft = deepcopy(document)
@@ -357,13 +362,14 @@ def _cancel(config):
     _finish("已取消修改", rerun=False, saved_view=saved_view, clear_cache=False)
 
 
-def _finish(message="", *, rerun=True, invalidate_reports=False, saved_view=None, clear_cache=True):
+def _finish(message="", *, rerun=True, invalidate_reports=False, saved_view=None, clear_cache=True,
+            keep_catalog=False):
     for key in ("shipment_pending_save", "shipment_pending_export", "shipment_draft_export", "shipment_action_error",
                 "shipment_blank_price_confirmation", "shipment_blank_price_toast"):
         st.session_state.pop(key, None)
     st.session_state.pop("shipment_cancel_view", None)
     if clear_cache:
-        clear_reads(st.session_state)
+        clear_reads(st.session_state, keep_catalog=keep_catalog)
     else:
         st.session_state.pop("shipment_read_cache", None)
     if invalidate_reports:
@@ -658,7 +664,8 @@ def render_shipment_management(config, *, start_new_on_entry=False):
         cache_key = (repr(config), key)
         if cache_key not in cache:
             # New editing snapshots must see current customer details and prices.
-            cache[cache_key] = timed_read(key, loader) if key == "customers" or isinstance(key, tuple) and key[0] == "history" else cached_read(config, st.session_state, key, loader, ttl=60)
+            cache[cache_key] = (timed_read(key, loader) if edit_read_is_fresh(key)
+                                else cached_read(config, st.session_state, key, loader, ttl=60))
         return cache[cache_key]
 
     with st.expander("查詢", expanded=False):
@@ -844,8 +851,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
             return saved_view["customer_label"]
         if editing:
             customer = next((row for row in customers if row["customer_id"] == document["customer_id"]), None)
-            if customer is not None:
-                return customer_display_name(customer)
+            return customer_display_name(customer) if customer else document["customer_name"]
         return read(("customer-label", document["customer_id"], document["customer_name"]),
                     lambda: display.name(document["customer_name"], document["customer_id"]))
     if document.get("status") == "void":
@@ -909,20 +915,6 @@ def render_shipment_management(config, *, start_new_on_entry=False):
         invoice[field] = st.selectbox(label, choices, index=widget_index(widget_key, current),
                                      format_func=lambda value: value or "請選擇", key=widget_key)
 
-    if editing:
-        loaders = {"customers": lambda: list_customers(config, include_inactive=True)}
-        if document["customer_id"]:
-            history_key = ("history", document["customer_id"], document["shipment_date"], document.get("id", ""))
-            loaders[history_key] = lambda: shipment_price_history(
-                config, document["customer_id"], document["shipment_date"], document.get("id", ""))
-            loaders["all_choices"] = lambda: shipment_choices(config, document["customer_id"], all_recipes=True)
-        preload_edit_reads(config, st.session_state, loaders)
-    customers = read("customers", lambda: list_customers(config, include_inactive=True)) if editing else []
-    if editing and st.session_state.pop("shipment_contacts_pending", False):
-        customer = next((row for row in customers if row["customer_id"] == document["customer_id"]), {})
-        for field in CONTACT_FIELDS:
-            if not str(document.get(field) or "").strip() and not document.get("_cleared_contacts", {}).get(field):
-                document[field] = customer.get(field) or ""
     section = '<div class="shipment-section">出貨與客戶</div>'
     search_customers = False
     if editing:
@@ -934,6 +926,40 @@ def render_shipment_management(config, *, start_new_on_entry=False):
         )
     else:
         st.markdown(section, unsafe_allow_html=True)
+
+    customers = []
+    if editing:
+        customer_id = document["customer_id"]
+        loaders = {}
+        if search_customers:
+            customer_key = "customers"
+            loaders[customer_key] = lambda: list_customers(config, include_inactive=True)
+        elif customer_id:
+            customer_key = ("selected-customer", customer_id)
+
+            def selected_customer_record():
+                try:
+                    return [get_customer(config, customer_id)]
+                except CustomerNotFound:
+                    return []
+
+            loaders[customer_key] = selected_customer_record
+        if customer_id:
+            history_key = ("history", customer_id, document["shipment_date"], document.get("id", ""))
+            loaders[history_key] = lambda: shipment_price_history(
+                config, customer_id, document["shipment_date"], document.get("id", ""))
+            loaders["all_choices"] = lambda: shipment_choices(config, customer_id, all_recipes=True)
+        preload_edit_reads(config, st.session_state, loaders)
+        if search_customers or customer_id:
+            customers = read(customer_key, loaders[customer_key])
+        if st.session_state.pop("shipment_contacts_pending", False):
+            customer = next((row for row in customers if row["customer_id"] == customer_id), {})
+            same_recipient = document.get("recipient_id") in (None, "", customer_id)
+            for field in CONTACT_FIELDS:
+                if (not str(document.get(field) or "").strip()
+                        and not document.get("_cleared_contacts", {}).get(field)
+                        and (field != "address" or same_recipient)):
+                    document[field] = customer.get(field) or ""
 
     header = st.columns([1.1, 1.2, 1.35, 1.55, 2.15] if search_customers else [1.25, 1.35, 1.55, 2.8])
     with header[0]:

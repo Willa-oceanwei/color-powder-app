@@ -28,7 +28,8 @@ def shipment_timing(stage, *, read_kind="", item_count=0):
 
 def timed_read(key, loader):
     kind = key[0] if isinstance(key, tuple) and key else key
-    kind = kind if kind in ("records", "number-navigation", "document", "customers", "history", "all_choices") else "other"
+    kind = kind if kind in ("records", "number-navigation", "document", "customers", "selected-customer",
+                            "history", "all_choices") else "other"
     with shipment_timing("shipment_read", read_kind=kind):
         return loader()
 
@@ -48,9 +49,24 @@ def cached_read(config, state, key, loader, *, ttl=30):
     return value
 
 
-def clear_reads(state):
-    state.pop("shipment_page_cache", None)
+def clear_reads(state, *, keep_catalog=False):
+    cache = state.pop("shipment_page_cache", {})
     state.pop("shipment_read_cache", None)
+    if keep_catalog:
+        catalogs = {identity: entry for identity, entry in cache.items() if identity[1] == "all_choices"}
+        if catalogs:
+            state["shipment_page_cache"] = catalogs
+
+
+def discard_catalog(state):
+    cache = state.get("shipment_page_cache", {})
+    for identity in tuple(cache):
+        if identity[1] == "all_choices":
+            cache.pop(identity)
+
+
+def edit_read_is_fresh(key):
+    return key == "customers" or isinstance(key, tuple) and key[0] in ("history", "selected-customer")
 
 
 def preload_edit_reads(config, state, loaders):
@@ -65,11 +81,12 @@ def preload_edit_reads(config, state, loaders):
         identity = (repr(config), key)
         if identity in cache:
             continue
-        fresh = key == "customers" or isinstance(key, tuple) and key[0] == "history"
-        if not fresh:
+        if not edit_read_is_fresh(key):
             entry = state.get("shipment_page_cache", {}).get(identity)
             if entry is not None and monotonic() - entry[0] < 60:
-                cache[identity] = deepcopy(entry[1])
+                # The editor treats its catalog as read-only. Keep its
+                # identity so reopening does not rebuild the product index.
+                cache[identity] = entry[1] if key == "all_choices" else deepcopy(entry[1])
                 continue
         pending[key] = loader
     if not pending:
@@ -85,4 +102,11 @@ def preload_edit_reads(config, state, loaders):
                 # The normal page read retains its existing error/retry behavior.
                 continue
             cache[(repr(config), key)] = value
+            if key == "all_choices":
+                page_cache = state.setdefault("shipment_page_cache", {})
+                identity = (repr(config), key)
+                page_cache.pop(identity, None)
+                while len(page_cache) >= 32:
+                    page_cache.pop(next(iter(page_cache)))
+                page_cache[identity] = (monotonic(), value)
 
