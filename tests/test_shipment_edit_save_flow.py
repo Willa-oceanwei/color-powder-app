@@ -134,12 +134,17 @@ def test_save_click_survives_interrupted_render_without_second_click(tmp_path, m
 
     monkeypatch.setattr(ui, "render_shipment_quote_notices", interrupt_once)
     monkeypatch.setattr(ui, "save_shipment", count_save)
+    prefix = f"shipment_{app.session_state['shipment_epoch']}_"
+    app.session_state[prefix + "items"] = {
+        "edited_rows": {0: {"數量": 2.0}}, "deleted_rows": [], "added_rows": [],
+    }
     next(w for w in app.text_area if w.label == "備註").set_value("Single click")
     app.button(key="shipment_save").click().run()
     assert not app.exception and interrupted == [True]
     assert writes == [True]
     assert "shipment_draft" not in app.session_state
     assert get_shipment(config, saved["id"])["notes"] == "Single click"
+    assert get_shipment(config, saved["id"])["items"][0]["quantity"] == "2.0"
     assert get_shipment(config, saved["id"])["version"] == 2
     app.run()
     assert writes == [True]
@@ -156,6 +161,61 @@ def test_explicit_save_does_not_depend_only_on_callback_flag(tmp_path, monkeypat
     assert not app.exception
     assert "shipment_draft" not in app.session_state
     assert get_shipment(config, saved["id"])["notes"] == "Save from paused query"
+
+
+def test_save_with_latest_note_goes_directly_to_saved_view(tmp_path, monkeypatch):
+    from utils import shipment_ui as ui
+
+    config, saved, app = _editing_app(tmp_path)
+    app.button(key="shipment_edit").click().run()
+    prefix = f"shipment_{app.session_state['shipment_epoch']}_"
+    editor_runs = []
+    monkeypatch.setattr(ui, "render_shipment_quote_notices", lambda *args: editor_runs.append(True))
+    app.text_area(key=prefix + "notes").set_value("Last input")
+    app.button(key="shipment_save").click().run()
+
+    assert not app.exception and not editor_runs
+    assert "shipment_draft" not in app.session_state
+    current = get_shipment(config, saved["id"])
+    assert current["notes"] == "Last input" and current["version"] == 2
+
+
+def test_save_conflict_preserves_current_draft(tmp_path):
+    config, saved, app = _editing_app(tmp_path)
+    app.button(key="shipment_edit").click().run()
+    prefix = f"shipment_{app.session_state['shipment_epoch']}_"
+    external = save_shipment(config, dict(saved, notes="External edit"))
+    app.text_area(key=prefix + "notes").set_value("Unsaved note")
+    app.button(key="shipment_save").click().run()
+
+    assert not app.exception and any("其他人修改" in error.value for error in app.error)
+    assert app.text_area(key=prefix + "notes").value == "Unsaved note"
+    assert get_shipment(config, saved["id"]) == external
+
+
+def test_only_active_edit_details_and_matching_customers_are_loaded(tmp_path):
+    config, saved, app = _editing_app(tmp_path)
+    create_customer(config, CustomerInput("C02", "另一間有限公司", short_name="另一間"))
+    app.button(key="shipment_edit").click().run()
+    prefix = f"shipment_{app.session_state['shipment_epoch']}_"
+    assert not any(w.label in ("客戶", "發票編號") for w in app.text_input)
+    assert not any(w.label == "客戶" for w in app.selectbox)
+    section = prefix + "detail_section"
+    app.radio(key=section).set_value("帳款資料").run()
+    app.text_input(key=prefix + "payment_terms").set_value("月結")
+    app.radio(key=section).set_value("相關資料").run()
+    assert not any(w.label == "付款條件" for w in app.text_input)
+    app.radio(key=section).set_value("帳款資料").run()
+    assert app.text_input(key=prefix + "payment_terms").value == "月結"
+    app.toggle(key=prefix + "show_customer_search").set_value(True).run()
+    app.text_input(key=prefix + "customer_search_query").set_value("另一間").run()
+    picker = app.selectbox(key=prefix + "customer_picker")
+    assert picker.options == ["請選擇客戶", "C02 · 另一間", "C01 · Customer"]
+    picker.set_value("C02").run()
+    app.button(key="shipment_save").click().run()
+    assert not app.exception
+    current = get_shipment(config, saved["id"])
+    assert current["customer_id"] == "C02" and current["payment_terms"] == "月結"
 
 
 def test_editing_skips_query_results_even_after_cache_expiry(tmp_path, monkeypatch):

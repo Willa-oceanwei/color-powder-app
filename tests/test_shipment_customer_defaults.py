@@ -31,6 +31,7 @@ render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(confi
     prefix = f"shipment_{app.session_state['shipment_epoch']}_"
     app.selectbox(key=prefix + "customer_picker").set_value("C01").run()
     assert not app.exception
+    app.radio(key=prefix + "detail_section").set_value("相關資料").run()
     expected = {"recipient_id": "C01", "recipient_name": "甲公司", "address": "第一路 1 號",
                 "phone": "02-12345678", "fax": "02-87654321", "contact": "王先生", "tax_id": "12345678"}
     for field, value in expected.items():

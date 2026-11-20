@@ -143,6 +143,101 @@ def _request_shipment_save():
     st.session_state.shipment_pending_save = True
 
 
+def _missing_prices(document):
+    return tuple((index, item["code"]) for index, item in enumerate(document["items"], 1)
+                 if is_blank_price(item.get("price")))
+
+
+def _sync_edit_details(document, prefix):
+    state = st.session_state
+    for field in ("notes", "payment_terms", "paid_in_full", *CONTACT_FIELDS):
+        if prefix + field not in state:
+            continue
+        value = state[prefix + field]
+        if field in CONTACT_FIELDS and value != str(document.get(field) or ""):
+            document.setdefault("_cleared_contacts", {})[field] = not value.strip()
+        document[field] = value
+    invoice = document["invoice"]
+    for target, field, widget in ((document, "account_date", "account_date"),
+                                  (invoice, "date", "invoice_date")):
+        if prefix + widget in state:
+            value = state[prefix + widget]
+            target[field] = value.isoformat() if value else ""
+    for field in ("number", "method", "type", "amount"):
+        widget = prefix + "invoice_" + field
+        if widget in state:
+            invoice[field] = state[widget]
+    if not document.get("id"):
+        for field, default in (("method", "隨單開立"), ("type", "收銀機")):
+            if prefix + "invoice_" + field not in state and not invoice.get(field):
+                invoice[field] = default
+
+
+def _prepare_invoice_amount(document, prefix):
+    state = st.session_state
+    invoice = document["invoice"]
+    manual_key = prefix + "invoice_amount_manual"
+    if manual_key not in state:
+        state[manual_key] = bool(invoice.get("amount"))
+    if not state[manual_key]:
+        try:
+            tax = calculate(document["items"], document["tax_mode"],
+                            state.get(prefix + "tax_rate", document["tax_rate"]))["tax_amount"]
+        except ShipmentError:
+            return
+        invoice["amount"] = state[prefix + "invoice_amount"] = str(tax)
+
+
+def _commit_shipment_draft(config, document, customers, matcher, *, sync_products, rerun):
+    if any(len(matcher.match(item.get("code"))) > 1 for item in document["items"]):
+        raise ShipmentError("有多筆相符貨品，請先選擇並採用完整編號。")
+    cleared = document.get("_cleared_contacts", {})
+    missing_contacts = tuple(field for field in CONTACT_FIELDS
+                             if not cleared.get(field) and not str(document.get(field) or "").strip())
+    with shipment_timing("shipment_save", item_count=len(document["items"])):
+        saved = save_shipment(config, document, sync_products=sync_products, fill_missing_contacts=missing_contacts)
+    st.session_state.shipment_selected = saved["id"]
+    st.session_state.shipment_preview_preference = False
+    st.session_state.update(shipment_query="", shipment_start=None, shipment_end=None, shipment_include_void=False,
+                            shipment_customer_start="", shipment_customer_end="", shipment_search_epoch=0)
+    customer = next((row for row in customers if row["customer_id"] == saved["customer_id"]), {})
+    _finish("已儲存出貨單 " + saved["shipment_number"], rerun=rerun, invalidate_reports=True,
+            saved_view={"config": repr(config), "document": saved,
+                        "customer_label": customer_display_name(customer) or saved["customer_name"]})
+
+
+def _save_before_render(config, draft, prefix):
+    state = st.session_state
+    checkpoint = state.get("shipment_save_checkpoint")
+    if not checkpoint or checkpoint[0] != (repr(config), prefix, state.get("shipment_grid_epoch", 0)):
+        return False
+    values, customers, matcher = checkpoint[1:]
+    # A fresh grid edit, date, customer or tax change must run through the
+    # editor's normal matching, pricing and validation before writing.
+    if any(state.get(key) != value for key, value in values.items()):
+        return False
+    adopting_item = any(key.startswith(prefix) and is_accounting_action(key) and state[key] for key in state)
+    if (_missing_prices(draft) or state.get("shipment_add_recipe") or adopting_item
+            or state.get("FormSubmitter:shipment_search-查詢")):
+        return False
+    document = deepcopy(draft)
+    for field in ("shipment_number", "recipient_id", "recipient_name"):
+        if prefix + field in state:
+            document[field] = state[prefix + field]
+    _sync_edit_details(document, prefix)
+    if prefix + "number_mode" in state:
+        document["number_mode"] = "date" if state[prefix + "number_mode"] == "依日期生成" else "manual"
+    state.pop("shipment_pending_save", None)
+    try:
+        _commit_shipment_draft(config, document, customers, matcher,
+                               sync_products=state.get(prefix + "sync_products", False), rerun=False)
+    except ShipmentError as error:
+        state.shipment_action_error = str(error)
+    except Exception:
+        state.shipment_action_error = "儲存失敗，請確認單號沒有重複及資料庫連線正常；修改內容已保留"
+    return True
+
+
 def _navigate_shipment(target_id, direction):
     if "shipment_draft" in st.session_state:
         return
@@ -199,7 +294,7 @@ def _suspend_for_search():
                             or st.session_state.get(f"shipment_{st.session_state.get('shipment_epoch', 0)}_invoice_amount_manual"))
     if has_content and draft != original:
         st.session_state.setdefault("shipment_suspended_drafts", []).append(deepcopy(draft))
-    for key in ("shipment_draft", "shipment_original", "shipment_editor_base"):
+    for key in ("shipment_draft", "shipment_original", "shipment_editor_base", "shipment_save_checkpoint"):
         st.session_state.pop(key, None)
 
 
@@ -243,6 +338,7 @@ def _finish(message="", *, rerun=True, invalidate_reports=False, saved_view=None
     st.session_state.pop("shipment_draft", None)
     st.session_state.pop("shipment_original", None)
     st.session_state.pop("shipment_editor_base", None)
+    st.session_state.pop("shipment_save_checkpoint", None)
     st.session_state.pop("shipment_saved_nav_direction", None)
     if saved_view is not None and message.startswith("已儲存出貨單"):
         st.session_state.get("shipment_note_drafts", {}).pop(saved_view["document"]["id"], None)
@@ -401,6 +497,9 @@ def _editor_rebase_needed(raw_items, completed_items):
 @st.fragment
 @shipment_timing("shipment_render")
 def render_shipment_management(config, *, start_new_on_entry=False):
+    draft = st.session_state.get("shipment_draft")
+    save_attempted = bool(draft is not None and st.session_state.get("shipment_pending_save") and
+                          _save_before_render(config, draft, f"shipment_{st.session_state.get('shipment_epoch', 0)}_"))
     for key, preference in (("shipment_print_preview", "shipment_preview_preference"), ("shipment_hide_prices", "shipment_hide_preference")):
         if preference in st.session_state:
             st.session_state[key] = st.session_state[preference]
@@ -578,7 +677,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                     on_click=_request_shipment_save, use_container_width=True)
     # Honor the button event itself as well as a request retained across reruns.
     # A missing callback flag must never silently discard an explicit save click.
-    save_clicked = editing and (save_pressed or st.session_state.get("shipment_pending_save", False))
+    save_clicked = editing and not save_attempted and (save_pressed or st.session_state.get("shipment_pending_save", False))
     if save_clicked:
         st.session_state.shipment_pending_save = True
     for col, label, direction in ((tools[5], "上一筆", -1), (tools[6], "下一筆", 1)):
@@ -722,39 +821,59 @@ def render_shipment_management(config, *, start_new_on_entry=False):
             st.markdown('<p class="shipment-number-help">留白自動編號；填入用指定單號。</p>', unsafe_allow_html=True)
     with header[3]:
         if editing:
-            available = {row["customer_id"]: customer_display_name(row) for row in customers if row["lifecycle_status"] == "active"}
-            original = st.session_state.get("shipment_original", document)
-            if original.get("customer_id"):
-                available.setdefault(original["customer_id"], original["customer_name"])
-            options = [""] + list(available)
-            # Keep widget identity stable while the selected customer changes.
-            selected_customer = st.selectbox(
-                "客戶", options, index=widget_index(prefix + "customer_picker", document["customer_id"]),
-                format_func=lambda value: f"{value} · {available[value]}" if value else "請選擇客戶",
-                key=prefix + "customer_picker",
-            )
-            if selected_customer != document["customer_id"]:
-                try:
-                    customer = get_customer(config, selected_customer) if selected_customer else {}
-                except CustomerNotFound as error:
-                    st.error(str(error))
-                    st.stop()
-                except CustomerError as error:
-                    # A temporarily unavailable detail lookup can still use
-                    # the customer snapshot loaded for this draft.
-                    customer = next((row for row in customers if row["customer_id"] == selected_customer), None)
-                    if customer is None:
+            search_key = prefix + "show_customer_search"
+            search_customers = st.toggle("搜尋／更換客戶",
+                                         value=widget_default(search_key, not document["customer_id"]), key=search_key)
+            if not search_customers:
+                _readonly_field("客戶", f"{document['customer_id']} · {current_customer_label()}"
+                                if document["customer_id"] else "請選擇客戶")
+            else:
+                query = st.text_input("客戶編號／全名／簡稱", key=prefix + "customer_search_query").strip().casefold()
+                available = {}
+                for row in customers:
+                    if row["lifecycle_status"] != "active":
+                        continue
+                    if query and not any(query in str(row.get(key) or "").casefold()
+                                         for key in ("customer_id", "name", "short_name")):
+                        continue
+                    if len(available) == 50:
+                        st.caption("只顯示前 50 筆，輸入客戶編號、全名或簡稱縮小範圍。")
+                        break
+                    available[row["customer_id"]] = customer_display_name(row)
+                original = st.session_state.get("shipment_original", document)
+                if original.get("customer_id"):
+                    available.setdefault(original["customer_id"], original["customer_name"])
+                if document["customer_id"]:
+                    available.setdefault(document["customer_id"], current_customer_label())
+                options = [""] + list(available)
+                # Keep widget identity stable while the selected customer changes.
+                selected_customer = st.selectbox(
+                    "客戶", options, index=widget_index(prefix + "customer_picker", document["customer_id"]),
+                    format_func=lambda value: f"{value} · {available[value]}" if value else "請選擇客戶",
+                    key=prefix + "customer_picker",
+                )
+                if selected_customer != document["customer_id"]:
+                    try:
+                        customer = get_customer(config, selected_customer) if selected_customer else {}
+                    except CustomerNotFound as error:
                         st.error(str(error))
                         st.stop()
-                name = customer.get("name", "")
-                document.pop("_cleared_contacts", None)
-                document.update(customer_id=selected_customer, customer_name=name,
-                                recipient_id=selected_customer, recipient_name=name)
-                for field in CONTACT_FIELDS:
-                    document[field] = customer.get(field) or ""
-                # Update delivery widgets before they are rendered in this run.
-                for field in ("recipient_id", "recipient_name", *CONTACT_FIELDS):
-                    st.session_state[prefix + field] = document[field]
+                    except CustomerError as error:
+                        # A temporarily unavailable detail lookup can still use
+                        # the customer snapshot loaded for this draft.
+                        customer = next((row for row in customers if row["customer_id"] == selected_customer), None)
+                        if customer is None:
+                            st.error(str(error))
+                            st.stop()
+                    name = customer.get("name", "")
+                    document.pop("_cleared_contacts", None)
+                    document.update(customer_id=selected_customer, customer_name=name,
+                                    recipient_id=selected_customer, recipient_name=name)
+                    for field in CONTACT_FIELDS:
+                        document[field] = customer.get(field) or ""
+                    # Update delivery widgets before they are rendered in this run.
+                    for field in ("recipient_id", "recipient_name", *CONTACT_FIELDS):
+                        st.session_state[prefix + field] = document[field]
         else:
             _readonly_field("客戶", f"{document['customer_id']} · {current_customer_label()}")
     st.markdown('<div class="shipment-section delivery">送貨資訊</div>', unsafe_allow_html=True)
@@ -915,76 +1034,78 @@ def render_shipment_management(config, *, start_new_on_entry=False):
     if editing:
         render_shipment_quote_notices(config, document)
     summary, details = st.columns([1, 3])
+    if editing:
+        _sync_edit_details(document, prefix)
+        _prepare_invoice_amount(document, prefix)
     with details:
-        transaction, invoice_tab, account, related = st.tabs(["交易明細", "發票資料", "帳款資料", "相關資料"])
-        with transaction:
-            notes_col, paid_col = st.columns([4, 1], vertical_alignment="center")
-            notes_options = {} if editing or document.get("status") == "void" else {
-                "on_change": _save_notes, "args": (config, deepcopy(document), prefix + "notes"),
-                "help": "可直接修改，離開欄位後自動儲存。"}
-            note_default = document.get("notes", "") if editing else st.session_state.get("shipment_note_drafts", {}).get(document["id"], document.get("notes", ""))
-            notes = notes_col.text_area("備註", value=widget_default(prefix + "notes", note_default), height=68,
-                                       key=prefix + "notes", disabled=document.get("status") == "void", **notes_options)
-            note_error = st.session_state.get("shipment_notes_error")
-            if not editing and note_error and note_error[0] == document["id"]:
-                notes_col.button("重試儲存備註", key=prefix + "retry_notes", on_click=_save_notes,
-                                 args=(config, deepcopy(document), prefix + "notes"))
-            paid_in_full = paid_col.toggle("已付清", value=widget_default(prefix + "paid_in_full", bool(document.get("paid_in_full", False))),
-                                           key=prefix + "paid_in_full", disabled=not editing,
-                                           help="供應收帳款明細表與單筆收款篩選；不會自動登錄收款或更動金額。")
-            if editing:
-                document["notes"] = notes
-                document["paid_in_full"] = paid_in_full
-        with invoice_tab:
-            invoice = document["invoice"]
-            row = st.columns(3)
-            with row[0]:
+        sections = ("交易明細", "發票資料", "帳款資料", "相關資料")
+        if editing:
+            selected_section = st.radio("明細分頁", sections, key=prefix + "detail_section",
+                                        horizontal=True, label_visibility="collapsed")
+            transaction = invoice_tab = account = related = st.container()
+        else:
+            selected_section = None
+            transaction, invoice_tab, account, related = st.tabs(sections)
+        if selected_section in (None, "交易明細"):
+            with transaction:
+                notes_col, paid_col = st.columns([4, 1], vertical_alignment="center")
+                notes_options = {} if editing or document.get("status") == "void" else {
+                    "on_change": _save_notes, "args": (config, deepcopy(document), prefix + "notes"),
+                    "help": "可直接修改，離開欄位後自動儲存。"}
+                note_default = document.get("notes", "") if editing else st.session_state.get("shipment_note_drafts", {}).get(document["id"], document.get("notes", ""))
+                notes = notes_col.text_area("備註", value=widget_default(prefix + "notes", note_default), height=68,
+                                           key=prefix + "notes", disabled=document.get("status") == "void", **notes_options)
+                note_error = st.session_state.get("shipment_notes_error")
+                if not editing and note_error and note_error[0] == document["id"]:
+                    notes_col.button("重試儲存備註", key=prefix + "retry_notes", on_click=_save_notes,
+                                     args=(config, deepcopy(document), prefix + "notes"))
+                paid_in_full = paid_col.toggle("已付清", value=widget_default(prefix + "paid_in_full", bool(document.get("paid_in_full", False))),
+                                               key=prefix + "paid_in_full", disabled=not editing,
+                                               help="供應收帳款明細表與單筆收款篩選；不會自動登錄收款或更動金額。")
                 if editing:
-                    document["tax_mode"] = st.selectbox(
-                        "課稅類別", TAX_MODES, index=widget_index(prefix + "tax_mode", document["tax_mode"]),
-                        key=prefix + "tax_mode", on_change=_tax_changed, args=(prefix, "mode"),
-                    )
-                else:
-                    _readonly_field("課稅類別", document["tax_mode"])
-                invoice_choice("開立方式", "method", ("隨單開立", "月結開立"))
-            with row[1]:
-                date_field("發票日期", "date", target=invoice, optional=True)
-                invoice_choice("發票聯式", "type", ("收銀機", "三聯式"))
-            with row[2]:
-                text("發票編號", "number", target=invoice)
-                amount_key = prefix + "invoice_amount"
-                manual_key = prefix + "invoice_amount_manual"
-                if editing:
-                    if manual_key not in st.session_state:
-                        st.session_state[manual_key] = bool(invoice.get("amount"))
-                    if not st.session_state[manual_key]:
-                        try:
-                            tax = calculate(document["items"], document["tax_mode"],
-                                            st.session_state.get(prefix + "tax_rate", document["tax_rate"]))["tax_amount"]
-                        except ShipmentError:
-                            pass
-                        else:
-                            st.session_state[amount_key] = str(tax)
-                    invoice["amount"] = st.text_input("發票金額", value=widget_default(amount_key, invoice.get("amount", "")),
-                                                      key=amount_key, on_change=_invoice_amount_changed, args=(prefix,))
-                else:
-                    _readonly_field("發票金額", invoice.get("amount"))
-        with account:
-            left, right = st.columns(2)
-            with left:
-                date_field("帳款日期", "account_date")
-            with right:
-                text("付款條件", "payment_terms")
-        with related:
-            for row_fields in ((("聯絡人", "contact"), ("統一編號", "tax_id")), (("聯絡電話", "phone"), ("傳真號碼", "fax"))):
-                for col, (label, field) in zip(st.columns(2), row_fields):
-                    with col:
-                        text(label, field)
-            if document.get("id"):
-                st.caption(f"建立：{document['created_at']}　更新：{document['updated_at']}")
-                st.caption("已作廢" if document.get("status") == "void" else "草稿")
-    missing_prices = tuple((index, item["code"]) for index, item in enumerate(document["items"], 1)
-                           if is_blank_price(item.get("price")))
+                    document["notes"] = notes
+                    document["paid_in_full"] = paid_in_full
+        if selected_section in (None, "發票資料"):
+            with invoice_tab:
+                invoice = document["invoice"]
+                row = st.columns(3)
+                with row[0]:
+                    if editing:
+                        document["tax_mode"] = st.selectbox(
+                            "課稅類別", TAX_MODES, index=widget_index(prefix + "tax_mode", document["tax_mode"]),
+                            key=prefix + "tax_mode", on_change=_tax_changed, args=(prefix, "mode"),
+                        )
+                    else:
+                        _readonly_field("課稅類別", document["tax_mode"])
+                    invoice_choice("開立方式", "method", ("隨單開立", "月結開立"))
+                with row[1]:
+                    date_field("發票日期", "date", target=invoice, optional=True)
+                    invoice_choice("發票聯式", "type", ("收銀機", "三聯式"))
+                with row[2]:
+                    text("發票編號", "number", target=invoice)
+                    amount_key = prefix + "invoice_amount"
+                    if editing:
+                        invoice["amount"] = st.text_input("發票金額", value=widget_default(amount_key, invoice.get("amount", "")),
+                                                          key=amount_key, on_change=_invoice_amount_changed, args=(prefix,))
+                    else:
+                        _readonly_field("發票金額", invoice.get("amount"))
+        if selected_section in (None, "帳款資料"):
+            with account:
+                left, right = st.columns(2)
+                with left:
+                    date_field("帳款日期", "account_date")
+                with right:
+                    text("付款條件", "payment_terms")
+        if selected_section in (None, "相關資料"):
+            with related:
+                for row_fields in ((("聯絡人", "contact"), ("統一編號", "tax_id")), (("聯絡電話", "phone"), ("傳真號碼", "fax"))):
+                    for col, (label, field) in zip(st.columns(2), row_fields):
+                        with col:
+                            text(label, field)
+                if document.get("id"):
+                    st.caption(f"建立：{document['created_at']}　更新：{document['updated_at']}")
+                    st.caption("已作廢" if document.get("status") == "void" else "草稿")
+    missing_prices = _missing_prices(document)
     with summary:
         st.markdown('<div class="shipment-section amounts">金額摘要</div>', unsafe_allow_html=True)
         if editing:
@@ -1061,13 +1182,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                     price_confirmation.empty()
     if save_clicked:
         try:
-            if any(len(matcher.match(item.get("code"))) > 1 for item in document["items"]):
-                raise ShipmentError("有多筆相符貨品，請先選擇並採用完整編號。")
-            cleared_contacts = document.get("_cleared_contacts", {})
-            missing_contacts = tuple(field for field in CONTACT_FIELDS
-                                     if not cleared_contacts.get(field) and not str(document.get(field) or "").strip())
-            with shipment_timing("shipment_save", item_count=len(document["items"])):
-                saved = save_shipment(config, document, sync_products=sync_products, fill_missing_contacts=missing_contacts)
+            _commit_shipment_draft(config, document, customers, matcher, sync_products=sync_products, rerun=True)
         except ShipmentError as error:
             save_error = str(error)
             action_feedback.error(save_error)
@@ -1076,22 +1191,21 @@ def render_shipment_management(config, *, start_new_on_entry=False):
             save_error = "儲存失敗，請確認單號沒有重複及資料庫連線正常；修改內容已保留"
             action_feedback.error(save_error)
             st.session_state.shipment_action_error = save_error
-        else:
-            st.session_state.shipment_selected = saved["id"]
-            # Mount the print iframe only if requested again for the saved document.
-            st.session_state.shipment_preview_preference = False
-            st.session_state.update(shipment_query="", shipment_start=None, shipment_end=None, shipment_include_void=False,
-                                    shipment_customer_start="", shipment_customer_end="", shipment_search_epoch=0)
-            customer = next((row for row in customers if row["customer_id"] == saved["customer_id"]), {})
-            _finish("已儲存出貨單 " + saved["shipment_number"], invalidate_reports=True,
-                    saved_view={"config": repr(config), "document": saved,
-                                "customer_label": customer_display_name(customer) or saved["customer_name"]})
     if editing and editor_rebased:
         # If export or a failed save leaves the draft open, mount the completed
         # grid before accepting another edit under its new widget key.
         if save_error:
             st.session_state.shipment_action_error = save_error
         _rerun_shipment()
+    if editing:
+        grid_key = prefix + "items" + (f"_{grid_suffix}" if grid_suffix else "")
+        watched = (grid_key, *(prefix + key for key in ("shipment_date", "customer_picker", "tax_mode", "tax_rate")))
+        st.session_state.shipment_save_checkpoint = (
+            (repr(config), prefix, grid_suffix),
+            {key: deepcopy(st.session_state.get(key)) for key in watched},
+            customers,
+            matcher,
+        )
     if not editing:
         lifecycle = st.container()
         if document["status"] == "draft":
