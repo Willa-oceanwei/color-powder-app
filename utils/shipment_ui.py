@@ -588,7 +588,6 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                    use_container_width=True, on_click=_navigate_shipment, args=(target_id, direction))
     position = "已儲存" if showing_saved else f"{index + 1 if ids else 0} / {len(ids)}"
     tools[7].markdown(f'<span id="shipment-toolbar" style="font-size:12px">{position}</span>', unsafe_allow_html=True)
-    hide_prices = st.session_state.get("shipment_hide_prices", st.session_state.get("shipment_hide_preference", False))
     export_panel = tools[8].popover("列印／匯出", use_container_width=True)
     with export_panel, st.container():
         output = st.selectbox("列印用途", ("實體列印", "另存 PDF（置中）"), key="shipment_output_mode")
@@ -599,10 +598,9 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                               format_func=lambda value: "列印：" + ("橫放進紙" if paper_stock == "a4_driver" and value == "橫式" else value), label_visibility="collapsed", disabled=paper_stock != "standard")
         feed_rotation = st.selectbox("紙張進紙", (0, 90), format_func=lambda v: ("240 mm 長邊先進（橫放）" if v == 0 else "140 mm 短邊先進（直放）") if paper_stock != "standard" else ("原方向" if v == 0 else "旋轉90度進紙"), key="shipment_feed_rotation", disabled=paper_stock == "a4_driver")
         hole_margin = st.number_input("左右打洞留白（mm）", min_value=0.0, max_value=25.0, value=12.5, step=0.5, key="shipment_hole_margin")
-        orientation = "portrait" if layout == "直式" else "landscape"
-        print_html = _cached_print(config, document, show_prices=not hide_prices, orientation=orientation, feed_rotation=feed_rotation, hole_margin=hole_margin, paper_stock=paper_stock, output_mode=output_mode) if document and not editing else None
-        if print_html:
-            st.download_button("下載列印版", data=print_html, file_name=document["shipment_number"] + ".html", mime="text/html", use_container_width=True)
+        prepare_saved_export = bool(document and not editing and st.button(
+            "產生列印檔", key="shipment_prepare_saved_export", use_container_width=True,
+        ))
         prepare_draft_export = st.button("產生列印檔", key="shipment_prepare_draft_export", use_container_width=True,
                                          disabled=not document.get("items")) if editing else False
         pending_export = st.session_state.pop("shipment_pending_export", False)
@@ -631,11 +629,23 @@ def render_shipment_management(config, *, start_new_on_entry=False):
     hide_prices = print_controls[1].toggle("隱藏單價與金額", value=widget_default("shipment_hide_prices", st.session_state.get("shipment_hide_preference", False)), key="shipment_hide_prices", on_change=_remember_print_settings, args=("shipment_hide_prices",))
     sync_products = print_controls[2].toggle("同步建立缺少貨品", key=prefix + "sync_products", disabled=not editing,
                                             help="成交價依客戶、貨品與單位保存於出貨紀錄，不覆蓋共用標準售價")
-    if preview and not editing:
-        with print_controls[3]:
-            render_purchase_history(config, document["customer_id"], current_customer_label())
-        components.html(theme_preview(print_html), height=550, scrolling=True)
-        return
+    if not editing:
+        options = dict(show_prices=not hide_prices, orientation=orientation, feed_rotation=feed_rotation,
+                       hole_margin=hole_margin, paper_stock=paper_stock, output_mode=output_mode)
+        export_key = (repr(config), document["id"], document["version"], tuple(options.items()))
+        if prepare_saved_export:
+            st.session_state.shipment_prepared_saved_export = export_key
+        elif st.session_state.get("shipment_prepared_saved_export") != export_key:
+            st.session_state.pop("shipment_prepared_saved_export", None)
+        if preview or st.session_state.get("shipment_prepared_saved_export") == export_key:
+            print_html = _cached_print(config, document, **options)
+            export_panel.download_button("下載列印版", data=print_html, file_name=document["shipment_number"] + ".html",
+                                         mime="text/html", use_container_width=True)
+            if preview:
+                with print_controls[3]:
+                    render_purchase_history(config, document["customer_id"], current_customer_label())
+                components.html(theme_preview(print_html), height=550, scrolling=True)
+                return
     draft_preview = st.empty() if editing and preview else None
     prefix = f"shipment_{st.session_state.get('shipment_epoch', 0)}_" if editing else f"shipment_view_{document['id']}_{document['version']}_"
 
@@ -761,6 +771,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
             st.markdown('<div class="shipment-section items shipment-item-heading">貨品明細</div>', unsafe_allow_html=True)
     else:
         st.markdown('<div class="shipment-section items">貨品明細</div>', unsafe_allow_html=True)
+    product_search_panel = st.container()
     requested_item = None
     editor_rebased = False
     if editing:
@@ -771,35 +782,48 @@ def render_shipment_management(config, *, start_new_on_entry=False):
         all_choices = read("all_choices",
                            lambda: shipment_choices(config, document["customer_id"], all_recipes=True)) if document["customer_id"] else {}
         matcher = editing_product_matcher(st.session_state, all_choices)
-        with item_tools[0].popover("搜尋貨品", use_container_width=True):
-            choices = {code: item for code, item in all_choices.items()
-                       if item.get("_recipe_customer", "") in ("", document["customer_id"])}
-            picker, unit_col, quantity_col, add_col = st.columns([3, 1, 1, 1])
-            picker_key = prefix + "recipe_picker_" + document["customer_id"]
-            code = picker.selectbox("貨品／配方", [""] + list(choices),
-                                    index=widget_index(picker_key, ""),
-                                    format_func=lambda key: f"{key} · {choices[key]['name']}" if key else "請選擇貨品或配方",
-                                    key=picker_key, on_change=_fill_product_unit, args=(prefix, choices, picker_key, history))
-            unit = unit_col.text_input("銷售單位", value=widget_default(prefix + "sale_unit", "KG"), key=prefix + "sale_unit").strip()
-            quantity = quantity_col.number_input("加入數量", min_value=0.001, value=widget_default(prefix + "add_quantity", 1.0), step=1.0, format="%.15g", key=prefix + "add_quantity")
-            defaults = recent_item_defaults(history, code) or {}
-            previous = recent_shipment_price(config, document["customer_id"], code, unit,
-                                             shipment_date=document["shipment_date"], tax_mode="免稅" if defaults.get("tax_exempt") else document["tax_mode"],
-                                             exclude_id=document.get("id", ""), history=history)
-            chosen = choices.get(code)
-            price = "0"
-            if previous:
-                price = str(previous["price"])
-                st.caption(f"前次單價：{display_price(price)} / {unit} · {previous['shipment_date']} · {previous['shipment_number']}")
-            elif code in choices:
-                if chosen["sales_unit"].upper() == unit.upper() and chosen["tax_mode"] == document["tax_mode"]:
-                    price = chosen["standard_price"]
-                    st.caption(f"標準售價：{display_price(price)} / {unit}")
-                else:
-                    st.caption("無相符單位或課稅方式的單價，可清空後補")
-            if add_col.button("加入", key="shipment_add_recipe", disabled=not code or not unit, use_container_width=True):
-                requested_item = dict(code=code, name=defaults.get("name") or chosen["name"], quantity=str(quantity), unit=unit,
-                                      price=price, tax_exempt=bool(defaults.get("tax_exempt", False)), order_number="", notes="")
+        search_open = item_tools[0].toggle("搜尋貨品", key=prefix + "show_product_search")
+        if search_open:
+            with product_search_panel:
+                query = st.text_input("貨品編號／品名", key=prefix + "product_search_query").strip().casefold()
+                choices = {}
+                for code, item in all_choices.items():
+                    if item.get("_recipe_customer", "") not in ("", document["customer_id"]):
+                        continue
+                    if query and query not in code.casefold() and query not in item["name"].casefold():
+                        continue
+                    if len(choices) == 50:
+                        st.caption("只顯示前 50 筆，輸入貨品編號或品名縮小範圍。")
+                        break
+                    choices[code] = item
+                picker, unit_col, quantity_col, add_col = st.columns([3, 1, 1, 1])
+                picker_key = prefix + "recipe_picker_" + document["customer_id"]
+                if st.session_state.get(picker_key) and st.session_state[picker_key] not in choices:
+                    st.session_state[picker_key] = ""
+                code = picker.selectbox("貨品／配方", [""] + list(choices),
+                                        index=widget_index(picker_key, ""),
+                                        format_func=lambda key: f"{key} · {choices[key]['name']}" if key else "請選擇貨品或配方",
+                                        key=picker_key, on_change=_fill_product_unit, args=(prefix, choices, picker_key, history))
+                unit = unit_col.text_input("銷售單位", value=widget_default(prefix + "sale_unit", "KG"), key=prefix + "sale_unit").strip()
+                quantity = quantity_col.number_input("加入數量", min_value=0.001, value=widget_default(prefix + "add_quantity", 1.0), step=1.0, format="%.15g", key=prefix + "add_quantity")
+                defaults = recent_item_defaults(history, code) or {}
+                previous = recent_shipment_price(config, document["customer_id"], code, unit,
+                                                 shipment_date=document["shipment_date"], tax_mode="免稅" if defaults.get("tax_exempt") else document["tax_mode"],
+                                                 exclude_id=document.get("id", ""), history=history)
+                chosen = choices.get(code)
+                price = "0"
+                if previous:
+                    price = str(previous["price"])
+                    st.caption(f"前次單價：{display_price(price)} / {unit} · {previous['shipment_date']} · {previous['shipment_number']}")
+                elif code in choices:
+                    if chosen["sales_unit"].upper() == unit.upper() and chosen["tax_mode"] == document["tax_mode"]:
+                        price = chosen["standard_price"]
+                        st.caption(f"標準售價：{display_price(price)} / {unit}")
+                    else:
+                        st.caption("無相符單位或課稅方式的單價，可清空後補")
+                if add_col.button("加入", key="shipment_add_recipe", disabled=not code or not unit, use_container_width=True):
+                    requested_item = dict(code=code, name=defaults.get("name") or chosen["name"], quantity=str(quantity), unit=unit,
+                                          price=price, tax_exempt=bool(defaults.get("tax_exempt", False)), order_number="", notes="")
     frame = pd.DataFrame(source_items, columns=list(COLUMNS)).rename(columns=COLUMNS)
     # Pandas 3 infers Arrow large_string; older Streamlit editors make it read-only.
     for column in ("貨品編號", "品名", "單位", "採購單號", "附註說明", "顯示編號"):

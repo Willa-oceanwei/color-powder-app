@@ -178,6 +178,7 @@ render_shipment_management(DatabaseConfig(backend="sqlite",path=Path({str(config
     app.selectbox(key=prefix + "customer_picker").set_value("C01").run()
     from datetime import date
     app.date_input(key=prefix + "shipment_date").set_value(date(2026, 10, 2)).run()
+    app.toggle(key=prefix + "show_product_search").set_value(True).run()
     app.selectbox(key=prefix + "recipe_picker_C01").set_value("R1").run()
     assert app.text_input(key=prefix + "sale_unit").value == "桶"
     app.text_input(key=prefix + "sale_unit").set_value("桶").run()
