@@ -121,6 +121,39 @@ body:has(.erp-title):has(#shipment-page) [data-testid="stPopoverBody"] button {b
 </style>
 """
 
+# Streamlit 1.45 sends data-editor changes through a client-side debounce.
+# A click can close the active cell before its new value reaches widget state.
+SHIPMENT_SAVE_AFTER_GRID_EDIT = """
+<script>
+(() => {
+    const appWindow = window.parent;
+    const page = appWindow.document;
+    if (page.documentElement.dataset.shipmentSaveDelay) return;
+    page.documentElement.dataset.shipmentSaveDelay = "true";
+    const scopePrefix = "st-key-shipment_save_scope_";
+    const saveButton = ".st-key-shipment_save button";
+    const pending = new Set();
+    page.addEventListener("click", (event) => {
+        const button = event.target.closest?.(saveButton);
+        const scope = button?.closest('[class*="' + scopePrefix + '"]');
+        if (!event.isTrusted || !button || button.disabled || !scope) return;
+        const draft = Array.from(scope.classList).find(name => name.startsWith(scopePrefix));
+        if (!draft) return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        if (pending.has(draft)) return;
+        pending.add(draft);
+        appWindow.setTimeout(() => {
+            pending.delete(draft);
+            // The grid's update may already have redrawn the toolbar.
+            const current = page.querySelector("." + draft + " " + saveButton);
+            if (current && !current.disabled) current.click();
+        }, 250);
+    }, true);
+})();
+</script>
+"""
+
 
 def _readonly_field(label, value):
     st.markdown(
@@ -766,8 +799,9 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                     on_click=_copy_for_edit, args=(document,))
     tools[3].button("取消", key="shipment_cancel", disabled=not editing, use_container_width=True,
                     on_click=_cancel, args=(config,))
-    save_pressed = tools[4].button("儲存", key="shipment_save", type="primary", disabled=not editing,
-                    on_click=_request_shipment_save, use_container_width=True)
+    with tools[4], st.container(key=f"shipment_save_scope_{st.session_state.get('shipment_epoch', 0)}"):
+        save_pressed = st.button("儲存", key="shipment_save", type="primary", disabled=not editing,
+                                 on_click=_request_shipment_save, use_container_width=True)
     # Honor the button event itself as well as a request retained across reruns.
     # A missing callback flag must never silently discard an explicit save click.
     save_clicked = editing and not save_attempted and (save_pressed or st.session_state.get("shipment_pending_save", False))
