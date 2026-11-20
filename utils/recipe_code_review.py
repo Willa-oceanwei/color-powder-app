@@ -9,14 +9,19 @@ from .recipe_repository import RecipeError, _mapping, _mappings, _recipe_sheet_p
 
 
 def suggested_recipe_code(code):
-    match = re.fullmatch(r"[A-Za-z]+(0[0-9]+)[A-Za-z]*", str(code or "").strip())
-    return match.group(1) if match else None
+    code = str(code or "").strip()
+    return code[1:] if re.fullmatch(r"[A-Za-z]+0[0-9]+[A-Za-z]*", code) else None
 
 
 @cached_read
 def reviewed_recipe_codes(config):
     with connect_from_config(config) as conn:
-        return _mappings(conn.execute("SELECT v.source_code,v.source_created_at,v.choice,v.target_code FROM recipe_code_reviews v JOIN recipes r ON r.recipe_id=v.source_code AND r.created_at=v.source_created_at"))
+        return _mappings(conn.execute("""
+            SELECT v.source_code, v.source_created_at, v.choice, v.target_code, r.recipe_id
+            FROM recipe_code_reviews v
+            JOIN recipes r ON r.created_at = v.source_created_at
+                AND r.recipe_id = CASE WHEN v.choice = 'rename' THEN v.target_code ELSE v.source_code END
+        """))
 
 
 def recipe_code_preview(config, source):
@@ -33,7 +38,7 @@ def _preview(conn, source):
         raise RecipeError("此編號不屬於前導零舊編號候選")
     components = _mappings(conn.execute(
         "SELECT * FROM recipe_components WHERE recipe_id=? ORDER BY position", (source,)))
-    token = hashlib.sha256(json.dumps([recipe, components], sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+    token = hashlib.sha256(json.dumps([recipe, components, target], sort_keys=True, ensure_ascii=False).encode()).hexdigest()
     return dict(source=source, target=target, token=token, recipe=recipe,
                 target_exists=_mapping(conn.execute(
                     "SELECT recipe_id FROM recipes WHERE UPPER(recipe_id)=UPPER(?)", (target,))) is not None)

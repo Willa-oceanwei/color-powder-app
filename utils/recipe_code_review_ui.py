@@ -26,11 +26,12 @@ def _confirm(config, preview, rename, on_renamed):
 
 
 def render_recipe_code_review(config, code, *, on_renamed):
-    if not suggested_recipe_code(code):
+    target = suggested_recipe_code(code)
+    if not target:
         return True
-    if any(row["source_code"] == code for row in reviewed_recipe_codes(config)):
+    if any(row["recipe_id"] == code for row in reviewed_recipe_codes(config)):
         return True
-    identity = (hashlib.sha256(repr(config).encode()).hexdigest(), code)
+    identity = (hashlib.sha256(repr(config).encode()).hexdigest(), code, target)
     saved = st.session_state.get("recipe_code_review_preview")
     if not saved or saved[0] != identity:
         try:
