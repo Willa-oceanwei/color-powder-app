@@ -40,7 +40,7 @@ def confirm(config, code="C0541A", rename=True):
     return confirm_recipe_code(config, code, p["token"], rename=rename)
 
 
-@pytest.mark.parametrize("old,new", [("C0541A","0541"),("C0542","0542"),("AB00123XY","00123"),("0541",None),("C10492",None),("69960A",None),("C0A",None),("C0541-A",None)])
+@pytest.mark.parametrize("old,new", [("C0541A","0541A"),("C0542","0542"),("AB00123XY","B00123XY"),("C0863A","0863A"),("0541A",None),("C10492",None),("69960A",None),("C0A",None),("C0541-A",None)])
 def test_suggestions_only_offer_leading_zero_candidates(old,new):
     assert suggested_recipe_code(old) == new
 
@@ -52,23 +52,23 @@ def test_confirm_changes_only_identifiers_and_preserves_every_numeric_source(con
     snapshot = records(config,"production_orders")[0]["recipe_snapshot_json"]
     order_before = list_production_orders(config)[0]
     oem_before = list_outsourcing_orders(config)[0]
-    assert confirm(config) == "0541"
-    renamed = next(row for row in records(config,"recipes") if row["recipe_id"]=="0541")
+    assert confirm(config) == "0541A"
+    renamed = next(row for row in records(config,"recipes") if row["recipe_id"]=="0541A")
     for key in recipe.keys() - {"recipe_id","version","updated_at","last_synced_at"}:
         assert renamed[key] == recipe[key]
-    assert records(config,"recipe_components") == [dict(row,recipe_id="0541") if row["recipe_id"]=="C0541A" else row for row in components]
+    assert records(config,"recipe_components") == [dict(row,recipe_id="0541A") if row["recipe_id"]=="C0541A" else row for row in components]
     assert records(config,"production_order_packages") == packages
     assert records(config,"production_orders")[0]["recipe_snapshot_json"] == snapshot
-    assert list_production_orders(config)[0] == dict(order_before,配方編號="0541")
-    assert list_outsourcing_orders(config)[0] == dict(oem_before,配方編號="0541")
-    assert next(r for r in list_recipes(config) if r["配方編號"]=="EXTRA")["原始配方"] == "0541"
+    assert list_production_orders(config)[0] == dict(order_before,配方編號="0541A")
+    assert list_outsourcing_orders(config)[0] == dict(oem_before,配方編號="0541A")
+    assert next(r for r in list_recipes(config) if r["配方編號"]=="EXTRA")["原始配方"] == "0541A"
     events = records(config,"sync_outbox")
     assert any(e["sheet_name"]=="配方管理" and e["row_key"]=="C0541A" and e["operation"]=="delete" for e in events)
-    assert any(e["sheet_name"]=="代工管理" and e["row_key"]=="O001" and json.loads(e["payload_json"])["配方編號"]=="0541" for e in events)
+    assert any(e["sheet_name"]=="代工管理" and e["row_key"]=="O001" and json.loads(e["payload_json"])["配方編號"]=="0541A" for e in events)
     # Other candidates are not implicitly reviewed.
     assert not any(r["source_code"]=="C0542" for r in reviewed_recipe_codes(config))
-    create_production_order(config, {"生產單號":"P002","配方編號":"0541","包裝重量1":"25","包裝份數1":"2"})
-    assert list_production_orders(config)[-1]["配方編號"] == "0541"
+    create_production_order(config, {"生產單號":"P002","配方編號":"0541A","包裝重量1":"25","包裝份數1":"2"})
+    assert list_production_orders(config)[-1]["配方編號"] == "0541A"
 
 
 def test_keep_is_durable_and_does_not_change_existing_business_rows(config):
@@ -86,6 +86,8 @@ def test_duplicate_destination_and_stale_preview_never_rename(config):
     with pytest.raises(RecipeError,match="變更"):
         confirm_recipe_code(config,"C0541A",preview["token"],rename=True)
     create_recipe(config,{"配方編號":"0541","色粉編號1":"P1","色粉重量1":"99"})
+    assert not recipe_code_preview(config,"C0541A")["target_exists"]
+    create_recipe(config,{"配方編號":"0541A","色粉編號1":"P1","色粉重量1":"99"})
     before = {t:records(config,t) for t in ("recipes","recipe_components","production_orders","sync_outbox")}
     with pytest.raises(RecipeError,match="已存在"):
         confirm(config)
@@ -120,18 +122,19 @@ def test_confirm_locks_before_reading_validation_snapshot(config,monkeypatch):
     confirm_recipe_code(config,"C0541A",preview["token"],rename=True)
 
 
-def test_ui_requires_individual_choice_and_reload_uses_numeric_string(config):
+def test_ui_requires_individual_choice_and_keeps_recipe_suffix(config):
     app = workspace_app(config).run(timeout=30)
-    app.text_input(key="search_text_tab1").set_value("0541").run()
+    app.text_input(key="search_text_tab1").set_value("0541A").run()
     assert not app.exception
-    assert app.button(key="recipe_code_review_rename").label == "改成 0541"
+    assert any("C0541A 是否要正式改成 0541A？" in warning.value for warning in app.warning)
+    assert app.button(key="recipe_code_review_rename").label == "改成 0541A"
     assert not app.session_state["show_confirm_panel"]
     assert not any(b.label=="💾 僅儲存生產單" for b in app.button)
     app.button(key="recipe_code_review_rename").click().run(timeout=30)
     assert not app.exception
-    assert app.text_input(key="search_text_tab1").value == "0541"
-    assert app.session_state["new_order"]["配方編號"] == "0541"
-    assert app.session_state["recipe_row_cache"]["配方編號"] == "0541"
+    assert app.text_input(key="search_text_tab1").value == "0541A"
+    assert app.session_state["new_order"]["配方編號"] == "0541A"
+    assert app.session_state["recipe_row_cache"]["配方編號"] == "0541A"
     assert not any(b.key=="recipe_code_review_rename" for b in app.button)
     app.text_input(key="search_text_tab1").set_value("0542").run()
     assert app.button(key="recipe_code_review_rename").label == "改成 0542"
@@ -155,8 +158,19 @@ def test_v33_upgrade_only_adds_empty_review_metadata(config):
     assert all(records(config,t)==rows for t,rows in before.items())
     assert reviewed_recipe_codes(config)==[]
 
+
+def test_ui_removes_only_one_prefix_character(config):
+    create_recipe(config, {"配方編號": "AB00123XY", "顏色": "多字首"})
+    app = workspace_app(config).run(timeout=30)
+    app.text_input(key="search_text_tab1").set_value("B00123XY").run()
+    assert app.button(key="recipe_code_review_rename").label == "改成 B00123XY"
+    app.button(key="recipe_code_review_rename").click().run(timeout=30)
+    assert not app.exception
+    assert app.session_state["new_order"]["配方編號"] == "B00123XY"
+    assert not any(button.key == "recipe_code_review_rename" for button in app.button)
+
 def test_manual_picker_and_existing_destination_are_safe(config):
-    create_recipe(config, {"配方編號":"0541","顏色":"Existing"})
+    create_recipe(config, {"配方編號":"0541A","顏色":"Existing"})
     app = workspace_app(config).run(timeout=30)
     app.text_input(key="search_text_tab1").set_value("透明藍").run()
     picker = app.selectbox(key="search_add_form_selected_recipe_tab1")
@@ -166,7 +180,7 @@ def test_manual_picker_and_existing_destination_are_safe(config):
     assert not app.session_state["show_confirm_panel"]
     app.button(key="recipe_code_review_keep").click().run()
     assert not app.exception and app.session_state["new_order"]["配方編號"] == "C0541A"
-    assert {r["配方編號"] for r in list_recipes(config)} >= {"0541","C0541A"}
+    assert {r["配方編號"] for r in list_recipes(config)} >= {"0541A","C0541A"}
 
 
 def test_reused_source_code_has_to_be_confirmed_again(config):
@@ -186,6 +200,6 @@ def test_renaming_cancelled_order_does_not_restore_it_or_block_later_restore(con
         last = [r for r in records(config,"sync_outbox") if r["sheet_name"]==sheet and r["row_key"]==key][-1]
         assert last["operation"] == "delete" and last["payload_json"] is None
     set_production_order_cancelled(config,"P001",cancelled=False)
-    assert list_production_orders(config)[0]["配方編號"] == "0541"
-    assert list_outsourcing_orders(config)[0]["配方編號"] == "0541"
+    assert list_production_orders(config)[0]["配方編號"] == "0541A"
+    assert list_outsourcing_orders(config)[0]["配方編號"] == "0541A"
     assert records(config,"production_order_packages") == packages
