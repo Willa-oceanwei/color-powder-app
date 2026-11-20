@@ -20,9 +20,10 @@ def _render_history_contents(config, customer_id, customer_name):
             st.caption("請先選擇出貨單客戶")
             return
         st.markdown(f"**{customer_id} · {customer_name}**")
-        code_col, search_col = st.columns([3, 1], vertical_alignment="bottom")
-        code = code_col.text_input("配方／貨品編號", key="shipment_purchase_history_code").strip()
-        submitted = search_col.button("搜尋歷程", key="shipment_purchase_history_search", use_container_width=True)
+        with st.form("shipment_purchase_history_search", enter_to_submit=True, border=False):
+            code_col, search_col = st.columns([3, 1], vertical_alignment="bottom")
+            code = code_col.text_input("配方／貨品編號", key="shipment_purchase_history_code").strip()
+            submitted = search_col.form_submit_button("搜尋歷程", use_container_width=True)
         if submitted:
             try:
                 rows = customer_purchase_history(config, customer_id, code)
