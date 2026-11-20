@@ -165,12 +165,18 @@ def test_number_search_previews_first_order_then_allows_manual_selection(product
     app.session_state["qa_drop_manage_selection"] = True
     app.run(timeout=30)
 
+    form = next(block.proto.form for block in app.get("form")
+                if block.proto.form.form_id == "production_manage_search")
+    assert form.enter_to_submit
+    assert app.text_input(key="search_order_input_tab3").proto.form_id == form.form_id
+    assert next(button for button in app.button if button.label == "🔍 搜尋").proto.form_id == form.form_id
+
     app.text_input(key="search_order_input_tab3").set_value("Blue")
-    app.button(key="search_production_manage").click().run()
+    next(button for button in app.button if button.label == "🔍 搜尋").click().run()
     assert not any("預設預覽" in caption.value for caption in app.caption)
 
     app.text_input(key="search_order_input_tab3").set_value("R001")
-    app.button(key="search_production_manage").click().run()
+    next(button for button in app.button if button.label == "🔍 搜尋").click().run()
     assert not app.exception
     assert app.session_state["selected_order_no_tab3"] == "P002"
     assert any("預設預覽 · P002" in caption.value for caption in app.caption)
@@ -183,7 +189,7 @@ def test_number_search_previews_first_order_then_allows_manual_selection(product
 
     app.session_state["qa_selected_manage_id"] = None
     app.text_input(key="search_order_input_tab3").set_value("P001")
-    app.button(key="search_production_manage").click().run()
+    next(button for button in app.button if button.label == "🔍 搜尋").click().run()
     assert not app.exception
     assert app.session_state["selected_order_no_tab3"] == "P001"
     assert any("預設預覽 · P001" in caption.value for caption in app.caption)
@@ -333,7 +339,7 @@ def test_switching_production_views_keeps_draft_and_renders_only_the_active_pane
     app.radio(key="production_order_view").set_value("history").run()
     assert not app.exception and len(app.dataframe) == 1
     assert not any(widget.key == "search_text_tab1" for widget in app.text_input)
-    assert not any(widget.key == "search_production_manage" for widget in app.button)
+    assert not any(widget.label == "🔍 搜尋" for widget in app.button)
     app.text_input(key="search_order_input_tab2").set_value("P001").run()
 
     app.radio(key="production_order_view").set_value("create").run()

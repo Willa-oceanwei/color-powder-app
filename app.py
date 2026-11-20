@@ -7024,7 +7024,7 @@ def render_production_order_workspace():
                             # 分級提醒
                             final_kg = new_stock / 1000
                             if final_kg < 0:
-                                alerts.append(f"🔴 {pid} → 庫存不足（需 {abs(final_kg):.2f} kg）")
+                                alerts.append(f"🔴 {pid} → 庫存不足（尚需 {abs(final_kg):.2f} kg）")
                             elif final_kg < 0.5:
                                 alerts.append(f"🔴 {pid} → 僅剩 {final_kg:.2f} kg（嚴重不足）")
                             elif final_kg < 1:
@@ -7530,8 +7530,7 @@ def render_production_order_workspace():
             help="開啟後，搜尋結果與選擇清單會包含已取消生產單，以便查看或恢復。",
         )
 
-        # ===== 🔥 用 Form 包起來（搜尋 + 日期 + 選擇生產單）=====
-        with st.container(border=True):
+        with st.form("production_manage_search", enter_to_submit=True):
             
             # 📅 日期區間選擇（新增）
             col_date1, col_date2 = st.columns(2)
@@ -7556,13 +7555,12 @@ def render_production_order_workspace():
                 key="search_order_input_tab3"
             )
             
-            submit_search = st.button("🔍 搜尋", key="search_production_manage")
+            submit_search = st.form_submit_button("🔍 搜尋")
     
         preview_first_order = False
         if submit_search:
             st.session_state.pop("production_manage_default_order_id", None)
 
-        # ===== 只有按下搜尋才執行篩選 =====
         if submit_search or st.session_state.get("last_search_tab3_done", False):
 
             # 只在送出搜尋時更新條件與重讀 Turso。
@@ -9640,21 +9638,22 @@ elif menu == "採購管理":
         except:
             df_stock = pd.DataFrame(columns=["類型","色粉編號","日期","數量","單位","備註"])
         
-        # --- 篩選欄位 ---
-        col1, col2, col3, col4 = st.columns(4)
-        search_code = col1.text_input("色粉編號", key="in_search_code")
-        search_start = col2.date_input("進貨日期(起)", key="in_search_start")
-        search_end = col3.date_input("進貨日期(迄)", key="in_search_end")
-        search_supplier = col4.text_input("廠商（編號或名稱）", key="in_search_supplier")
+        with st.form("purchase_inventory_search", enter_to_submit=True, border=False):
+            col1, col2, col3, col4 = st.columns(4)
+            search_code = col1.text_input("色粉編號", key="in_search_code")
+            search_start = col2.date_input("進貨日期(起)", key="in_search_start")
+            search_end = col3.date_input("進貨日期(迄)", key="in_search_end")
+            search_supplier = col4.text_input("廠商（編號或名稱）", key="in_search_supplier")
 
-        include_carwash_transfers = st.toggle(
-            "包含洗車廠轉入明細",
-            value=False,
-            key="purchase_search_include_carwash_transfers",
-            help="預設只查看新採購品項；開啟後一併顯示由洗車廠出庫轉入的進貨紀錄。",
-        )
+            include_carwash_transfers = st.toggle(
+                "包含洗車廠轉入明細",
+                value=False,
+                key="purchase_search_include_carwash_transfers",
+                help="預設只查看新採購品項；開啟後一併顯示由洗車廠出庫轉入的進貨紀錄。",
+            )
+            submit_purchase_search = st.form_submit_button("查詢進貨")
         
-        if st.button("查詢進貨", key="btn_search_in_v3"):
+        if submit_purchase_search:
             df_result = df_stock[df_stock["類型"] == "進貨"].copy()
 
             # 新採購查詢預設排除系統由洗車廠出庫建立的轉入紀錄。
@@ -12196,7 +12195,7 @@ elif menu == "庫存區":
         )
         st.session_state["_tab5_use_date_range"] = use_date_range
 
-        with st.container(border=True):
+        with st.form("master_stock_search", enter_to_submit=True):
             col1, col2 = st.columns(2)
             master_start = col1.date_input(
                 "查詢起日", key="master_stock_start",
@@ -12217,8 +12216,8 @@ elif menu == "庫存區":
                 )
 
             b1, b2 = st.columns(2)
-            submit_master_query = b1.button("計算色母庫存")
-            submit_master_all   = b2.button("顯示全部色母")
+            submit_master_query = b1.form_submit_button("計算色母庫存")
+            submit_master_all   = b2.form_submit_button("顯示全部色母")
 
         if submit_master_query or submit_master_all:
 
@@ -12633,7 +12632,7 @@ elif menu == "庫存區":
     # ====================================================================
     if inventory_view == "usage":
 
-        with st.container(border=True):
+        with st.form("pigment_usage_search", enter_to_submit=True):
             st.markdown("**🔍 色粉用量查詢**")
 
             cols = st.columns(4)
@@ -12647,7 +12646,7 @@ elif menu == "庫存區":
             start_date = col1.date_input("開始日期", key="usage_start_date")
             end_date   = col2.date_input("結束日期",  key="usage_end_date")
 
-            submit_t4 = st.button("查詢用量")
+            submit_t4 = st.form_submit_button("查詢用量")
 
         if submit_t4:
             powder_inputs = powder_inputs_raw

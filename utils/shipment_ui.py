@@ -803,8 +803,19 @@ def render_shipment_management(config, *, start_new_on_entry=False):
         for field in CONTACT_FIELDS:
             if not str(document.get(field) or "").strip() and not document.get("_cleared_contacts", {}).get(field):
                 document[field] = customer.get(field) or ""
-    st.markdown('<div class="shipment-section">出貨與客戶</div>', unsafe_allow_html=True)
-    header = st.columns([1.25, 1.35, 1.55, 2.8])
+    section = '<div class="shipment-section">出貨與客戶</div>'
+    search_customers = False
+    if editing:
+        title_col, search_col = st.columns([4, 1], vertical_alignment="center")
+        title_col.markdown(section, unsafe_allow_html=True)
+        search_key = prefix + "show_customer_search"
+        search_customers = search_col.toggle(
+            "搜尋／更換客戶", value=widget_default(search_key, not document["customer_id"]), key=search_key,
+        )
+    else:
+        st.markdown(section, unsafe_allow_html=True)
+
+    header = st.columns([1.1, 1.2, 1.35, 1.55, 2.15] if search_customers else [1.25, 1.35, 1.55, 2.8])
     with header[0]:
         date_field("出貨日期", "shipment_date")
     with header[1]:
@@ -819,63 +830,59 @@ def render_shipment_management(config, *, start_new_on_entry=False):
         text("出貨單號", "shipment_number")
         if editing and document["number_mode"] == "date":
             st.markdown('<p class="shipment-number-help">留白自動編號；填入用指定單號。</p>', unsafe_allow_html=True)
-    with header[3]:
-        if editing:
-            search_key = prefix + "show_customer_search"
-            search_customers = st.toggle("搜尋／更換客戶",
-                                         value=widget_default(search_key, not document["customer_id"]), key=search_key)
-            if not search_customers:
-                _readonly_field("客戶", f"{document['customer_id']} · {current_customer_label()}"
-                                if document["customer_id"] else "請選擇客戶")
-            else:
-                query = st.text_input("客戶編號／全名／簡稱", key=prefix + "customer_search_query").strip().casefold()
-                available = {}
-                for row in customers:
-                    if row["lifecycle_status"] != "active":
-                        continue
-                    if query and not any(query in str(row.get(key) or "").casefold()
-                                         for key in ("customer_id", "name", "short_name")):
-                        continue
-                    if len(available) == 50:
-                        st.caption("只顯示前 50 筆，輸入客戶編號、全名或簡稱縮小範圍。")
-                        break
-                    available[row["customer_id"]] = customer_display_name(row)
-                original = st.session_state.get("shipment_original", document)
-                if original.get("customer_id"):
-                    available.setdefault(original["customer_id"], original["customer_name"])
-                if document["customer_id"]:
-                    available.setdefault(document["customer_id"], current_customer_label())
-                options = [""] + list(available)
-                # Keep widget identity stable while the selected customer changes.
-                selected_customer = st.selectbox(
-                    "客戶", options, index=widget_index(prefix + "customer_picker", document["customer_id"]),
-                    format_func=lambda value: f"{value} · {available[value]}" if value else "請選擇客戶",
-                    key=prefix + "customer_picker",
-                )
-                if selected_customer != document["customer_id"]:
-                    try:
-                        customer = get_customer(config, selected_customer) if selected_customer else {}
-                    except CustomerNotFound as error:
-                        st.error(str(error))
-                        st.stop()
-                    except CustomerError as error:
-                        # A temporarily unavailable detail lookup can still use
-                        # the customer snapshot loaded for this draft.
-                        customer = next((row for row in customers if row["customer_id"] == selected_customer), None)
-                        if customer is None:
-                            st.error(str(error))
-                            st.stop()
-                    name = customer.get("name", "")
-                    document.pop("_cleared_contacts", None)
-                    document.update(customer_id=selected_customer, customer_name=name,
-                                    recipient_id=selected_customer, recipient_name=name)
-                    for field in CONTACT_FIELDS:
-                        document[field] = customer.get(field) or ""
-                    # Update delivery widgets before they are rendered in this run.
-                    for field in ("recipient_id", "recipient_name", *CONTACT_FIELDS):
-                        st.session_state[prefix + field] = document[field]
-        else:
-            _readonly_field("客戶", f"{document['customer_id']} · {current_customer_label()}")
+    if search_customers:
+        query = header[3].text_input(
+            "客戶編號／全名／簡稱", key=prefix + "customer_search_query",
+            help="搜尋結果最多顯示 50 筆，請輸入關鍵字縮小範圍。",
+        ).strip().casefold()
+        available = {}
+        for row in customers:
+            if row["lifecycle_status"] != "active":
+                continue
+            if query and not any(query in str(row.get(key) or "").casefold()
+                                 for key in ("customer_id", "name", "short_name")):
+                continue
+            if len(available) == 50:
+                break
+            available[row["customer_id"]] = customer_display_name(row)
+        original = st.session_state.get("shipment_original", document)
+        if original.get("customer_id"):
+            available.setdefault(original["customer_id"], original["customer_name"])
+        if document["customer_id"]:
+            available.setdefault(document["customer_id"], current_customer_label())
+        options = [""] + list(available)
+        # Keep widget identity stable while the selected customer changes.
+        selected_customer = header[4].selectbox(
+            "客戶", options, index=widget_index(prefix + "customer_picker", document["customer_id"]),
+            format_func=lambda value: f"{value} · {available[value]}" if value else "請選擇客戶",
+            key=prefix + "customer_picker",
+        )
+        if selected_customer != document["customer_id"]:
+            try:
+                customer = get_customer(config, selected_customer) if selected_customer else {}
+            except CustomerNotFound as error:
+                st.error(str(error))
+                st.stop()
+            except CustomerError as error:
+                # A temporarily unavailable detail lookup can still use
+                # the customer snapshot loaded for this draft.
+                customer = next((row for row in customers if row["customer_id"] == selected_customer), None)
+                if customer is None:
+                    st.error(str(error))
+                    st.stop()
+            name = customer.get("name", "")
+            document.pop("_cleared_contacts", None)
+            document.update(customer_id=selected_customer, customer_name=name,
+                            recipient_id=selected_customer, recipient_name=name)
+            for field in CONTACT_FIELDS:
+                document[field] = customer.get(field) or ""
+            # Update delivery widgets before they are rendered in this run.
+            for field in ("recipient_id", "recipient_name", *CONTACT_FIELDS):
+                st.session_state[prefix + field] = document[field]
+    else:
+        with header[3]:
+            _readonly_field("客戶", f"{document['customer_id']} · {current_customer_label()}"
+                            if document["customer_id"] else "請選擇客戶")
     st.markdown('<div class="shipment-section delivery">送貨資訊</div>', unsafe_allow_html=True)
     receiver = st.columns([1.2, 1.8, 4])
     for col, label, field in zip(receiver, ("指送對象編號", "指送對象名稱", "送貨地址"), ("recipient_id", "recipient_name", "address")):

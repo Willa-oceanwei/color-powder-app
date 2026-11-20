@@ -8,7 +8,7 @@ from uuid import uuid4
 from streamlit.testing.v1 import AppTest
 
 from utils.customer_repository import CustomerInput, create_customer
-from utils.database import DatabaseConfig, connect, database_health_check, initialize_database
+from utils.database import SCHEMA_VERSION, DatabaseConfig, connect, database_health_check, initialize_database
 from utils.receipt_repository import (outstanding_shipments, save_receipt, save_receipt_batch,
                                       update_receipt_amount)
 from utils.receivable_report import build_statements, monthly_receipt_summary, statement_pages
@@ -161,6 +161,6 @@ render_sales_returns(DatabaseConfig(backend='sqlite', path=Path({str(self.config
             conn.execute("DELETE FROM schema_migrations WHERE version>=36")
             conn.execute("INSERT OR IGNORE INTO schema_migrations VALUES (35,'2026-11-18')")
         initialize_database(self.config.path)
-        self.assertEqual(database_health_check(self.config).schema_version, 36)
+        self.assertEqual(database_health_check(self.config).schema_version, SCHEMA_VERSION)
         self.assertEqual(self.current(shipment), shipment)
         self.assertEqual(self.register(shipment, {1: 1})["total_amount"], "105")
