@@ -33,7 +33,7 @@ from utils.big_label_repository import (
     BIG_LABEL_EDITOR_COLUMNS, build_big_label_editor_defaults,
     normalize_big_label_editor_rows, remember_big_label_rows, expand_big_label_editor_rows, format_label_ratio_value,
 )
-from utils.shipment_ui import render_shipment_management
+from utils.shipment_ui import SHIPMENT_SAVE_AFTER_GRID_EDIT, render_shipment_management
 from utils.sales_return_ui import render_sales_returns
 from utils.scheduled_quote_ui import render_scheduled_quotes
 from utils.carwash_inventory_ui import show_carwash_save_notice
@@ -1201,8 +1201,8 @@ div[data-testid="stForm"] {
 """, unsafe_allow_html=True)
 
 
-def apply_tab_persistence_fix():
-    """修正 Streamlit rerun 後 st.tabs 回到第一個分頁的問題。"""
+def apply_browser_state_handlers():
+    """保留分頁選擇，並讓出貨單儲存等表格完成編輯。"""
     components.html(
         """
         <script>
@@ -1280,7 +1280,7 @@ def apply_tab_persistence_fix():
           }, 200);
         })();
         </script>
-        """,
+        """ + SHIPMENT_SAVE_AFTER_GRID_EDIT,
         height=0,
         width=0,
     )
@@ -1442,7 +1442,7 @@ def apply_arrow_nav():
 
 shell_started_at = time.perf_counter()
 apply_modern_style()
-apply_tab_persistence_fix()
+apply_browser_state_handlers()
 apply_arrow_nav()
 render_sidebar()
 log_performance("application_shell", shell_started_at)
