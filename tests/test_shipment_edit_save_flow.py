@@ -40,6 +40,47 @@ def test_resaving_shipment_prints_the_current_full_customer_name(tmp_path):
     assert "客戶名稱：C01　範例模具有限公司</div>" in printable_shipment(updated)
 
 
+def test_product_search_only_sends_a_bounded_result_set(tmp_path, monkeypatch):
+    from utils import shipment_ui as ui
+    from utils.product_repository import blank_product
+
+    catalog = {f"P{i:03d}": dict(blank_product(), name=f"Product {i}") for i in range(70)}
+    monkeypatch.setattr(ui, "shipment_choices", lambda *args, **kwargs: catalog)
+    _, _, app = _editing_app(tmp_path)
+    app.button(key="shipment_edit").click().run()
+    prefix = f"shipment_{app.session_state['shipment_epoch']}_"
+    assert not any(widget.label == "貨品／配方" for widget in app.selectbox)
+
+    app.toggle(key=prefix + "show_product_search").set_value(True).run()
+    assert len(app.selectbox(key=prefix + "recipe_picker_C01").options) == 51
+    app.text_input(key=prefix + "product_search_query").set_value("product 69").run()
+    assert app.selectbox(key=prefix + "recipe_picker_C01").options == ["請選擇貨品或配方", "P069 · Product 69"]
+    assert not app.exception
+
+
+def test_saved_export_is_prepared_only_when_requested(tmp_path, monkeypatch):
+    from utils import shipment_ui as ui
+
+    _, _, app = _editing_app(tmp_path)
+    original = ui.printable_shipment
+    calls = []
+
+    def capture(document, **options):
+        calls.append(options)
+        return original(document, **options)
+
+    monkeypatch.setattr(ui, "printable_shipment", capture)
+    assert not app.get("download_button")
+    app.button(key="shipment_prepare_saved_export").click().run()
+    assert len(calls) == 1 and app.get("download_button")
+    app.run()
+    assert len(calls) == 1 and app.get("download_button")
+    app.toggle(key="shipment_hide_prices").set_value(True).run()
+    assert len(calls) == 1 and not app.get("download_button")
+    app.button(key="shipment_prepare_saved_export").click().run()
+    assert len(calls) == 2 and calls[-1]["show_prices"] is False
+
+
 def test_ambiguous_match_button_survives_rerun_apply_and_save(tmp_path):
     from utils.recipe_repository import create_recipe
     config, saved, app = _editing_app(tmp_path)

@@ -46,6 +46,8 @@ render_shipment_management(DatabaseConfig(backend="sqlite",path=Path({str(config
     prefix = f"shipment_{app.session_state['shipment_epoch']}_"
     app.selectbox(key=prefix + "customer_picker").set_value("C01").run()
     app.text_input(key=prefix + "shipment_number").set_value("001").run()
+    assert not any(widget.label == "貨品／配方" for widget in app.selectbox)
+    app.toggle(key=prefix + "show_product_search").set_value(True).run()
     app.selectbox(key=prefix + "recipe_picker_C01").set_value("R1").run()
     app.button(key="shipment_add_recipe").click().run()
     grid_epoch = app.session_state["shipment_grid_epoch"]
@@ -73,6 +75,8 @@ render_shipment_management(DatabaseConfig(backend="sqlite",path=Path({str(config
     assert list_shipments(config) == []
     app.button(key="shipment_save").click().run()
     assert not app.exception
+    assert len(calls) == 1
+    assert not app.get("download_button")
     saved = get_shipment(config, app.session_state["shipment_selected"])
     assert saved["items"][0]["name"] == "Custom Blue"
     assert saved["items"][0]["quantity"] == "3.0"
@@ -95,6 +99,7 @@ render_shipment_management(DatabaseConfig(backend="sqlite",path=Path({str(config
     assert not app.get("arrow_data_frame")
     app.toggle(key="shipment_print_preview").set_value(True).run()
     assert not app.exception and app.get("iframe")
+    assert app.get("download_button")
 
     # Saving or preparing a file while a code needs automatic completion must
     # survive the one necessary grid refresh, rather than drop the action.

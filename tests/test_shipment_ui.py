@@ -430,6 +430,7 @@ render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(confi
     app.button(key='shipment_new').click().run()
     next(w for w in app.selectbox if w.label == '單號方式').set_value('依日期生成').run()
     next(widget for widget in app.selectbox if widget.label == '客戶').set_value('C01').run()
+    next(widget for widget in app.toggle if widget.label == '搜尋貨品').set_value(True).run()
     next(widget for widget in app.selectbox if widget.label == '貨品／配方').set_value('P1').run()
     next(widget for widget in app.text_input if widget.label == '銷售單位').set_value('包').run()
     app.button(key='shipment_add_recipe').click().run()
@@ -459,6 +460,7 @@ render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(confi
     app.button(key='shipment_new').click().run()
     next(w for w in app.selectbox if w.label == '單號方式').set_value('依日期生成').run()
     next(w for w in app.selectbox if w.label == '客戶').set_value('C01').run()
+    next(w for w in app.toggle if w.label == '搜尋貨品').set_value(True).run()
     next(w for w in app.selectbox if w.label == '貨品／配方').set_value('NEW').run()
     assert next(w for w in app.text_input if w.label == '銷售單位').value == '包'
     app.button(key='shipment_add_recipe').click().run()
@@ -471,6 +473,7 @@ render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(confi
     app.button(key='shipment_new').click().run()
     next(w for w in app.selectbox if w.label == '單號方式').set_value('依日期生成').run()
     next(w for w in app.selectbox if w.label == '客戶').set_value('C01').run()
+    next(w for w in app.toggle if w.label == '搜尋貨品').set_value(True).run()
     next(w for w in app.selectbox if w.label == '貨品／配方').set_value('NEW').run()
     app.button(key='shipment_add_recipe').click().run()
     assert not app.exception
@@ -495,6 +498,7 @@ render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(confi
     app.button(key='shipment_new').click().run()
     next(w for w in app.selectbox if w.label == '單號方式').set_value('依日期生成').run()
     next(w for w in app.selectbox if w.label == '客戶').set_value('C01').run()
+    next(w for w in app.toggle if w.label == '搜尋貨品').set_value(True).run()
     next(w for w in app.selectbox if w.label == '貨品／配方').set_value('P1').run()
     app.button(key='shipment_add_recipe').click().run()
     assert float(app.session_state['shipment_draft']['items'][0]['price']) == 0
