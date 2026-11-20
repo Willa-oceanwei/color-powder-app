@@ -12,7 +12,7 @@ from utils.database import DatabaseConfig, initialize_database
 from utils.shipment_repository import blank_shipment, get_shipment, save_shipment
 
 
-def queue_updates(monkeypatch, updates, *, full_app=False):
+def queue_updates(monkeypatch, updates, *, full_app=False, merge_with=None):
     original_init = LocalScriptRunner.__init__
     queued = []
 
@@ -25,11 +25,15 @@ def queue_updates(monkeypatch, updates, *, full_app=False):
                 return
             key, value = updates[len(queued)]
             states = WidgetStates(widgets=runner._session_state.get_widget_states())
+            fragment_id = None if full_app else next(iter(runner._fragment_storage._fragments))
             if key:
                 widget = next((widget for widget in states.widgets if widget.id.endswith("-" + key)), None)
                 if widget is None:
                     widget = states.widgets.add(id=runner._session_state._state._get_widget_id(key))
-                value_type = runner._session_state._state._new_widget_state.widget_metadata[widget.id].value_type
+                metadata = runner._session_state._state._new_widget_state.widget_metadata[widget.id]
+                value_type = metadata.value_type
+                if not full_app:
+                    fragment_id = metadata.fragment_id
                 if isinstance(value, bool):
                     if value_type == "trigger_value":
                         widget.trigger_value = value
@@ -47,9 +51,16 @@ def queue_updates(monkeypatch, updates, *, full_app=False):
                         widget.int_value = value
                 else:
                     widget.string_value = value
-            fragment_id = None if full_app else next(iter(runner._fragment_storage._fragments))
             queued.append(fragment_id)
-            assert runner.request_rerun(RerunData(fragment_id=fragment_id, widget_states=states))
+            if merge_with and key in merge_with:
+                other_key = merge_with[key]
+                other_id = runner._session_state._state._get_widget_id(other_key)
+                other = runner._session_state._state._new_widget_state.widget_metadata[other_id].fragment_id
+                assert fragment_id != other
+                ids = [other, fragment_id] if value else [fragment_id, other]
+                assert runner.request_rerun(RerunData(fragment_id_queue=ids, widget_states=states))
+            else:
+                assert runner.request_rerun(RerunData(fragment_id=fragment_id, widget_states=states))
 
         runner.on_event.connect(rerun_workspace, weak=False)
 
@@ -57,8 +68,10 @@ def queue_updates(monkeypatch, updates, *, full_app=False):
     return queued
 
 
-@pytest.mark.parametrize("editing", [False, True])
-def test_shipment_page_changes_preserve_draft_and_reuse_reads_and_prints(tmp_path, monkeypatch, editing):
+@pytest.mark.parametrize("editing,updates_scope", [
+    (False, "app"), (True, "app"), (False, "widget"), (True, "widget"), (False, "coalesced"),
+])
+def test_shipment_page_changes_preserve_draft_and_reuse_reads_and_prints(tmp_path, monkeypatch, editing, updates_scope):
     import utils.customer_display as labels
     import utils.shipment_ui as ui
 
@@ -86,8 +99,19 @@ def test_shipment_page_changes_preserve_draft_and_reuse_reads_and_prints(tmp_pat
         return original_print(*args, **kwargs)
 
     monkeypatch.setattr(ui, "printable_shipment", count_print)
+    editor_runs = []
+    original_complete = ui.complete_items
+
+    def count_editor(*args, **kwargs):
+        editor_runs.append(True)
+        return original_complete(*args, **kwargs)
+
+    monkeypatch.setattr(ui, "complete_items", count_editor)
+    full_app = updates_scope == "app"
+    merge_with = {"shipment_hide_prices": "shipment_print_preview"} if updates_scope == "coalesced" else None
     queued = queue_updates(monkeypatch, [("shipment_print_preview", True),
-                                         ("shipment_hide_prices", True), ("shipment_print_preview", False)], full_app=True)
+                                         ("shipment_hide_prices", True), ("shipment_hide_prices", False),
+                                         ("shipment_print_preview", False)], full_app=full_app, merge_with=merge_with)
     root = str(Path(__file__).resolve().parents[1])
     app = AppTest.from_string(f'''import sys
 sys.path.insert(0, {root!r})
@@ -104,9 +128,14 @@ render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(confi
         app.session_state["shipment_editor_base"] = deepcopy(saved["items"])
         app.session_state["shipment_epoch"] = 1
     app.run(timeout=30)
-    assert not app.exception and len(queued) == 3, queued
-    assert app.session_state["main_runs"] == 4
-    assert queued == [None, None, None]  # Normal app updates keep all editor nodes together.
+    assert not app.exception and len(queued) == 4, queued
+    assert app.session_state["main_runs"] == (5 if full_app else 1)
+    assert not app.get("iframe")
+    if not full_app:
+        assert all(queued)
+        assert queued[0] == queued[-1] and queued[1] == queued[2]
+        assert (queued[0] == queued[1]) == editing
+        assert len(editor_runs) == int(editing)
     assert prints == [True, False]
     assert len(reads) == len(set(reads))
     if editing:
