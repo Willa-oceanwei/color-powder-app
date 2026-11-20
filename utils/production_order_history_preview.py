@@ -28,4 +28,9 @@ def render_production_order_history_preview(evidence, renderer, *, show_addition
         show_additional_ids=show_additional_ids,
         recipe_notice="歷史查閱副本，請勿依此生產。",
     )
-    return re.sub(r"<script\b[^>]*>.*?</script>", "", document, flags=re.IGNORECASE | re.DOTALL)
+    document = re.sub(r"<script\b[^>]*>.*?</script>", "", document, flags=re.IGNORECASE | re.DOTALL)
+    # Paint the paper inside the iframe even when the application uses a dark theme.
+    paper_style = """<style>
+html, body { color-scheme: light; background-color: #fff; color: #000; }
+</style>"""
+    return document.replace("</head>", paper_style + "</head>", 1)
