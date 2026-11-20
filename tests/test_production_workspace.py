@@ -113,8 +113,8 @@ def test_verified_historical_preview_is_display_only(production_config):
     with connect_from_config(production_config) as conn:
         conn.execute("UPDATE production_orders SET recipe_snapshot_json=NULL WHERE production_order_id='P001'")
         conn.execute(
-            "INSERT INTO production_order_history_previews VALUES (?, ?, ?)",
-            ("P001", json.dumps(evidence), "2026-11-18"),
+            "UPDATE production_order_history_previews SET evidence_json=? WHERE production_order_id='P001'",
+            (json.dumps(evidence),),
         )
     app = workspace_app(production_config, "manage").run(timeout=30)
     assert not app.exception

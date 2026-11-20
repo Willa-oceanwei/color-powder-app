@@ -9,6 +9,7 @@ from typing import Any
 from .read_cache import cached_read
 from .database import DatabaseConfig, connect_from_config, enqueue_sheet_sync, utc_now_iso
 from .outsourcing_repository import _set_outsourcing_lifecycle
+from .production_consumption import FROZEN_CONSUMPTION_KEY, consumption_in_grams, package_total
 from .recipe_repository import _recipe_sheet_payload, normalize_color_powder_id
 
 
@@ -167,12 +168,19 @@ def _recipe_signature(rows):
 @cached_read
 def list_production_orders(
     config: DatabaseConfig, *, include_cancelled: bool = False, include_recipe_snapshot: bool = False,
+    include_inventory_evidence: bool = False,
 ) -> list[dict[str, str]]:
     with connect_from_config(config) as conn:
         where = "" if include_cancelled else "WHERE cancelled_at IS NULL"
         snapshot_column = ", recipe_snapshot_json" if include_recipe_snapshot else ""
+        evidence_column = """
+            , CASE WHEN trim(coalesce(recipe_snapshot_json, '')) = '' THEN (
+                SELECT evidence_json FROM production_order_inventory_recoveries AS recovery
+                WHERE recovery.production_order_id = production_orders.production_order_id
+            ) END AS inventory_evidence
+        """ if include_inventory_evidence else ""
         rows = _mappings(conn.execute(
-            f"""SELECT payload_json, cancelled_at, cancel_reason{snapshot_column}
+            f"""SELECT payload_json, cancelled_at, cancel_reason{snapshot_column}{evidence_column}
                 FROM production_orders {where}
                 ORDER BY production_date, production_order_id"""
         ))
@@ -181,6 +189,8 @@ def list_production_orders(
         payload = json.loads(row["payload_json"])
         if include_recipe_snapshot:
             payload["_recipe_snapshot_json"] = row["recipe_snapshot_json"] or ""
+        if include_inventory_evidence and row["inventory_evidence"]:
+            payload["_inventory_evidence_json"] = row["inventory_evidence"]
         payload.update({
             "取消狀態": "已取消" if row.get("cancelled_at") else "有效",
             "取消時間": str(row.get("cancelled_at") or ""),
@@ -223,6 +233,14 @@ def _save(
             if expected_recipe_rows is not None:
                 if _recipe_signature([main, *additions]) != _recipe_signature(expected_recipe_rows):
                     raise ProductionOrderError("配方已更新，請重新載入配方後再建立生產單。")
+            if create:
+                snapshot = json.loads(snapshot_json)
+                total = package_total(payload)
+                snapshot[FROZEN_CONSUMPTION_KEY] = {
+                    "package_total": total,
+                    "grams": consumption_in_grams(main, additions, total),
+                }
+                snapshot_json = json.dumps(snapshot, ensure_ascii=False)
         if existing is not None:
             existing_payload = json.loads(existing["payload_json"])
             linked_recipe_id = existing["recipe_id"] or ""
@@ -258,6 +276,16 @@ def _save(
                        version, created_at, updated_at, last_synced_at)
                    VALUES (?, ?, ?, ?, ?, 'draft', ?, ?, ?, 'app', ?, ?, ?, NULL)""",
                 (order_id, *persisted_values[:-1], created_at, persisted_values[-1]),
+            )
+            conn.execute(
+                """INSERT INTO production_order_history_previews
+                   (production_order_id, evidence_json, verified_at) VALUES (?, ?, ?)""",
+                (order_id, json.dumps({
+                    "order": payload,
+                    "recipe": main,
+                    "additional_recipes": additions,
+                    "source": "開單時保存的生產單與配方",
+                }, ensure_ascii=False), now),
             )
         else:
             # An edit must be an UPDATE in both intent and SQL.  Using an upsert here
