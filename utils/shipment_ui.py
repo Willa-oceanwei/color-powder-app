@@ -249,12 +249,15 @@ def _navigate_shipment(target_id, direction):
 
 def _cached_print(config, document, **options):
     signature = (repr(config), json.dumps(document, sort_keys=True, ensure_ascii=False, default=str),
-                 tuple(sorted(options.items())))
+                 tuple(sorted((key, option) for key, option in options.items() if key != "show_prices")))
     cached = st.session_state.get("shipment_print_cache")
     if cached is None or cached[0] != signature:
-        cached = (signature, printable_shipment(document, **options))
+        cached = (signature, {})
         st.session_state.shipment_print_cache = cached
-    return cached[1]
+    show_prices = options["show_prices"]
+    if show_prices not in cached[1]:
+        cached[1][show_prices] = printable_shipment(document, **options)
+    return cached[1][show_prices]
 
 
 def _begin(document, *, rerun=True):
@@ -471,6 +474,98 @@ def _draft_print_document(document):
     return snapshot
 
 
+def _show_print_preview():
+    return st.toggle(
+        "預覽／列印", key="shipment_print_preview",
+        value=widget_default("shipment_print_preview", st.session_state.get("shipment_preview_preference", False)),
+        on_change=_remember_print_settings, args=("shipment_print_preview",),
+    )
+
+
+@st.fragment
+def _render_shipment_output(config, document, *, workspace_id, preview, prepare_export, options, preview_slot):
+    # Draft preview can open without rebuilding the editor. In saved view the
+    # outer toggle still switches between the paper and the document details.
+    editing = preview is None
+    context = get_script_run_ctx()
+    if context.fragment_ids_this_run and workspace_id not in context.fragment_ids_this_run:
+        prepare_export = False
+    if editing:
+        preview_control, price_control = st.columns(2)
+        with preview_control:
+            preview = _show_print_preview()
+    else:
+        price_control = st.container()
+    with price_control:
+        hide_prices = st.toggle(
+            "隱藏單價與金額", key="shipment_hide_prices",
+            value=widget_default("shipment_hide_prices", st.session_state.get("shipment_hide_preference", False)),
+            on_change=_remember_print_settings, args=("shipment_hide_prices",),
+        )
+    options = dict(options, show_prices=not hide_prices)
+    if not preview:
+        preview_slot.empty()
+
+    if editing:
+        prepared = st.session_state.get("shipment_draft_export")
+        if prepared or prepare_export:
+            signature = (repr(config), json.dumps(document, sort_keys=True, ensure_ascii=False, default=str),
+                         tuple(options.items()))
+            if prepared and prepared["signature"] != signature:
+                st.session_state.pop("shipment_draft_export", None)
+                prepared = None
+        if preview or prepare_export:
+            try:
+                snapshot = _draft_print_document(document)
+                html = _cached_print(config, snapshot, **options)
+            except ShipmentError as error:
+                if preview:
+                    preview_slot.info(str(error))
+            else:
+                if prepare_export:
+                    prepared = {"signature": signature, "html": html,
+                                "filename": (snapshot["shipment_number"] or "未儲存出貨單") + ".html"}
+                    st.session_state.shipment_draft_export = prepared
+                if preview:
+                    with preview_slot:
+                        components.html(theme_preview(html), height=550, scrolling=True)
+        if prepared:
+            st.download_button("下載列印版", prepared["html"], file_name=prepared["filename"],
+                               mime="text/html", on_click="ignore", use_container_width=True)
+        return context.current_fragment_id
+
+    export_key = (repr(config), document["id"], document["version"], tuple(options.items()))
+    if prepare_export:
+        st.session_state.shipment_prepared_saved_export = export_key
+    elif st.session_state.get("shipment_prepared_saved_export") != export_key:
+        st.session_state.pop("shipment_prepared_saved_export", None)
+    if preview or st.session_state.get("shipment_prepared_saved_export") == export_key:
+        html = _cached_print(config, document, **options)
+        st.download_button("下載列印版", html, file_name=document["shipment_number"] + ".html",
+                           mime="text/html", on_click="ignore", use_container_width=True)
+        if preview:
+            with preview_slot:
+                components.html(theme_preview(html), height=550, scrolling=True)
+    return context.current_fragment_id
+
+
+def _place_shipment_output(config, document, **kwargs):
+    context = get_script_run_ctx()
+    parent_id = context.current_fragment_id
+    output_id = _render_shipment_output(config, document, workspace_id=parent_id, **kwargs)
+    render_only_output = context.fragment_storage.get(output_id)
+
+    def render_unless_workspace_is_queued():
+        # Streamlit 1.45 may batch events from both fragments. The workspace
+        # already renders this output with the current document and widget
+        # state, so skip the duplicate before it registers the same widgets.
+        running = get_script_run_ctx()
+        if parent_id not in running.fragment_ids_this_run:
+            render_only_output()
+
+    context.fragment_storage.set(output_id, render_unless_workspace_is_queued)
+
+
 def _editor_rebase_needed(raw_items, completed_items):
     """Rebuild the grid only when automatic completion changes visible values."""
     if len(raw_items) != len(completed_items):
@@ -492,8 +587,6 @@ def _editor_rebase_needed(raw_items, completed_items):
     return False
 
 
-# Streamlit 1.38 can leave editor/tab nodes blank on fragment updates.
-# Render this page in the normal app run; session read/print caches stay in use.
 @st.fragment
 @shipment_timing("shipment_render")
 def render_shipment_management(config, *, start_new_on_entry=False):
@@ -687,8 +780,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                    use_container_width=True, on_click=_navigate_shipment, args=(target_id, direction))
     position = "已儲存" if showing_saved else f"{index + 1 if ids else 0} / {len(ids)}"
     tools[7].markdown(f'<span id="shipment-toolbar" style="font-size:12px">{position}</span>', unsafe_allow_html=True)
-    export_panel = tools[8].popover("列印／匯出", use_container_width=True)
-    with export_panel, st.container():
+    with tools[8].popover("列印／匯出", use_container_width=True), st.container():
         output = st.selectbox("列印用途", ("實體列印", "另存 PDF（置中）"), key="shipment_output_mode")
         output_mode = "pdf" if output.startswith("另存 PDF") else "print"
         stock = st.selectbox("紙張尺寸", ("A4", "三聯紙 240 × 140 mm", "A5"), key="shipment_paper_stock")
@@ -705,6 +797,8 @@ def render_shipment_management(config, *, start_new_on_entry=False):
         pending_export = st.session_state.pop("shipment_pending_export", False)
         prepare_draft_export = prepare_draft_export or pending_export
     orientation = "portrait" if layout == "直式" else "landscape"
+    print_options = dict(orientation=orientation, feed_rotation=feed_rotation, hole_margin=hole_margin,
+                         paper_stock=paper_stock, output_mode=output_mode)
     if editing:
         st.markdown('<span class="shipment-edit-status">編輯中 · 尚未儲存</span>', unsafe_allow_html=True)
     if not document:
@@ -723,30 +817,22 @@ def render_shipment_management(config, *, start_new_on_entry=False):
     if document.get("status") == "void":
         st.warning("已作廢：" + document.get("void_reason", ""))
     prefix = f"shipment_{st.session_state.get('shipment_epoch', 0)}_" if editing else f"shipment_view_{document['id']}_{document['version']}_"
-    print_controls = st.columns([1, 1, 2, 1])
-    preview = print_controls[0].toggle("預覽／列印", value=widget_default("shipment_print_preview", st.session_state.get("shipment_preview_preference", False)), key="shipment_print_preview", on_change=_remember_print_settings, args=("shipment_print_preview",))
-    hide_prices = print_controls[1].toggle("隱藏單價與金額", value=widget_default("shipment_hide_prices", st.session_state.get("shipment_hide_preference", False)), key="shipment_hide_prices", on_change=_remember_print_settings, args=("shipment_hide_prices",))
-    sync_products = print_controls[2].toggle("同步建立缺少貨品", key=prefix + "sync_products", disabled=not editing,
+    print_controls = st.columns([2, 2, 1])
+    sync_products = print_controls[1].toggle("同步建立缺少貨品", key=prefix + "sync_products", disabled=not editing,
                                             help="成交價依客戶、貨品與單位保存於出貨紀錄，不覆蓋共用標準售價")
+    preview_slot = st.empty()
     if not editing:
-        options = dict(show_prices=not hide_prices, orientation=orientation, feed_rotation=feed_rotation,
-                       hole_margin=hole_margin, paper_stock=paper_stock, output_mode=output_mode)
-        export_key = (repr(config), document["id"], document["version"], tuple(options.items()))
-        if prepare_saved_export:
-            st.session_state.shipment_prepared_saved_export = export_key
-        elif st.session_state.get("shipment_prepared_saved_export") != export_key:
-            st.session_state.pop("shipment_prepared_saved_export", None)
-        if preview or st.session_state.get("shipment_prepared_saved_export") == export_key:
-            print_html = _cached_print(config, document, **options)
-            export_panel.download_button("下載列印版", data=print_html, file_name=document["shipment_number"] + ".html",
-                                         mime="text/html", use_container_width=True)
-            if preview:
-                with print_controls[3]:
-                    render_purchase_history(config, document["customer_id"], current_customer_label())
-                components.html(theme_preview(print_html), height=550, scrolling=True)
-                return
-    draft_preview = st.empty() if editing and preview else None
-    prefix = f"shipment_{st.session_state.get('shipment_epoch', 0)}_" if editing else f"shipment_view_{document['id']}_{document['version']}_"
+        with print_controls[0]:
+            preview_control, price_control = st.columns(2)
+        with preview_control:
+            preview = _show_print_preview()
+        with price_control:
+            _place_shipment_output(config, document, preview=preview, prepare_export=prepare_saved_export,
+                                   options=print_options, preview_slot=preview_slot)
+        if preview:
+            with print_controls[2]:
+                render_purchase_history(config, document["customer_id"], current_customer_label())
+            return
 
     if editing:
         document["tax_mode"] = st.session_state.get(prefix + "tax_mode", document["tax_mode"])
@@ -888,7 +974,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
     for col, label, field in zip(receiver, ("指送對象編號", "指送對象名稱", "送貨地址"), ("recipient_id", "recipient_name", "address")):
         with col:
             text(label, field)
-    with print_controls[3]:
+    with print_controls[2]:
         render_purchase_history(config, document["customer_id"], current_customer_label())
     source_items = st.session_state.get("shipment_editor_base", document["items"]) if editing else document["items"]
     if editing:
@@ -1135,33 +1221,9 @@ def render_shipment_management(config, *, start_new_on_entry=False):
         lines = '　·　'.join(f'{escape(str(item.get("code", "")))}：{display_amount(amount) or "待報價"}' for item, amount in zip(document["items"], totals["line_amounts"]))
         st.markdown(f'<div class="shipment-lines">{lines}</div>', unsafe_allow_html=True)
     if editing:
-        export_signature = (repr(config), json.dumps(document, sort_keys=True, ensure_ascii=False, default=str),
-                            hide_prices, orientation, feed_rotation, hole_margin, paper_stock, output_mode)
-        prepared = st.session_state.get("shipment_draft_export")
-        if prepared and prepared["signature"] != export_signature:
-            st.session_state.pop("shipment_draft_export", None)
-            prepared = None
-    if editing and (preview or prepare_draft_export):
-        try:
-            snapshot = _draft_print_document(document)
-            draft_html = _cached_print(config, snapshot, show_prices=not hide_prices, orientation=orientation,
-                                             feed_rotation=feed_rotation, hole_margin=hole_margin,
-                                             paper_stock=paper_stock, output_mode=output_mode)
-        except ShipmentError as error:
-            if draft_preview is not None:
-                draft_preview.info(str(error))
-        else:
-            if prepare_draft_export:
-                prepared = {"signature": export_signature, "html": draft_html,
-                            "filename": (snapshot["shipment_number"] or "未儲存出貨單") + ".html"}
-                st.session_state.shipment_draft_export = prepared
-            if draft_preview is not None:
-                with draft_preview.container():
-                    components.html(theme_preview(draft_html), height=550, scrolling=True)
-    if editing and prepared:
-        with export_panel:
-            st.download_button("下載列印版", prepared["html"], file_name=prepared["filename"],
-                               mime="text/html", use_container_width=True)
+        with print_controls[0]:
+            _place_shipment_output(config, document, preview=None, prepare_export=prepare_draft_export,
+                                   options=print_options, preview_slot=preview_slot)
     save_error = ""
     if editing:
         # Consume the toolbar request after reading the whole draft. A second
