@@ -182,6 +182,11 @@ def _valid_date(value, label, optional=False):
 
 def _validated(document):
     header = {key: str(document.get(key) or "").strip() for key in HEADER_FIELDS}
+    cleared = document.get("_cleared_contacts")
+    if isinstance(cleared, dict):
+        explicit_blanks = {field: True for field in CONTACT_FIELDS if cleared.get(field) and not header[field]}
+        if explicit_blanks:
+            header["_cleared_contacts"] = explicit_blanks
     header["paid_in_full"] = document.get("paid_in_full") in (True, 1)
     header["number_mode"] = document.get("number_mode") or ("manual" if document.get("shipment_number") else "date")
     if header["number_mode"] not in ("manual", "date"):
@@ -351,18 +356,22 @@ def save_shipment(config, document, *, sync_products=False, fill_missing_contact
             duplicate = _mapping(conn.execute("SELECT id FROM shipment_orders WHERE shipment_number=? AND id!=?", (number, shipment_id)))
             if duplicate:
                 raise ShipmentError("出貨單號已存在，請使用其他單號")
-        if not existing or existing["customer_id"] != header["customer_id"]:
+        same_customer = existing is not None and existing["customer_id"] == header["customer_id"]
+        if not same_customer or fill_missing_contacts:
             customer = _mapping(conn.execute(
                 "SELECT name,lifecycle_status,address,phone,fax,contact,tax_id FROM customers WHERE customer_id=?",
                 (header["customer_id"],),
             ))
-            if not customer or customer["lifecycle_status"] != "active":
+            active_customer = customer and customer["lifecycle_status"] == "active"
+            if not same_customer and not active_customer:
                 raise ShipmentError("請選擇有效客戶")
-            header["customer_name"] = customer["name"]
-            if not existing:
+            if active_customer:
+                header["customer_name"] = customer["name"]
                 same_recipient = header["recipient_id"] in ("", header["customer_id"])
                 for field in CONTACT_FIELDS:
-                    if field in fill_missing_contacts and not header[field] and (field != "address" or same_recipient):
+                    if (field in fill_missing_contacts and not header[field]
+                            and not header.get("_cleared_contacts", {}).get(field)
+                            and (field != "address" or same_recipient)):
                         header[field] = str(customer.get(field) or "").strip()
         elif current_customer_name:
             header["customer_name"] = current_customer_name

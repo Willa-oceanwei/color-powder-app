@@ -179,6 +179,24 @@ def test_save_with_latest_note_goes_directly_to_saved_view(tmp_path, monkeypatch
     current = get_shipment(config, saved["id"])
     assert current["notes"] == "Last input" and current["version"] == 2
 
+    # The immediate Edit must reuse its product index and only look up the
+    # selected customer. A full customer or catalog read blocks this screen.
+    from unittest.mock import Mock
+    catalog = app.session_state["shipment_product_matcher"]
+    list_customers = Mock(wraps=ui.list_customers)
+    shipment_choices = Mock(wraps=ui.shipment_choices)
+    get_customer = Mock(wraps=ui.get_customer)
+    monkeypatch.setattr(ui, "list_customers", list_customers)
+    monkeypatch.setattr(ui, "shipment_choices", shipment_choices)
+    monkeypatch.setattr(ui, "get_customer", get_customer)
+    app.button(key="shipment_edit").click().run()
+    assert not app.exception
+    assert app.session_state["shipment_draft"]["notes"] == "Last input"
+    assert app.session_state["shipment_product_matcher"] is catalog
+    list_customers.assert_not_called()
+    shipment_choices.assert_not_called()
+    get_customer.assert_called_once_with(config, "C01")
+
 
 def test_save_conflict_preserves_current_draft(tmp_path):
     config, saved, app = _editing_app(tmp_path)

@@ -203,11 +203,11 @@ def test_shipment_edit_fills_missing_contacts_once_without_extra_reads(config, m
     doc["items"] = [dict(code="P1", name="Product", quantity="1", unit="KG", price="100", notes="", order_number="")]
     saved = save_shipment(config, doc)
     reads = []
-    original = ui.list_customers
+    original = ui.get_customer
     def counted(*args, **kwargs):
         reads.append(True)
         return original(*args, **kwargs)
-    monkeypatch.setattr(ui, "list_customers", counted)
+    monkeypatch.setattr(ui, "get_customer", counted)
     root = str(Path(__file__).resolve().parents[1])
     app = AppTest.from_string(f'''import sys
 sys.path.insert(0,{root!r})
@@ -333,5 +333,11 @@ render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(confi
     assert saved["address"] == "本次指定地址" and saved["phone"] == ""
     assert (saved["fax"], saved["contact"], saved["tax_id"]) == ("06-2222222", "聯絡人", "01234567")
     assert any('聯絡人</span><span class="shipment-read-value">聯絡人</span>' in w.value for w in app.markdown)
+    app.button(key="shipment_edit").click().run()
+    prefix = f"shipment_{app.session_state['shipment_epoch']}_"
+    app.radio(key=prefix + "detail_section").set_value("相關資料").run()
+    assert not app.exception
+    assert app.text_input(key=prefix + "phone").value == ""
+    assert app.text_input(key=prefix + "contact").value == "聯絡人"
 
 
