@@ -127,6 +127,7 @@ render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(confi
             app.session_state[key] = deepcopy(saved)
         app.session_state["shipment_editor_base"] = deepcopy(saved["items"])
         app.session_state["shipment_epoch"] = 1
+        app.session_state["shipment_1_item_editor_open"] = True
     app.run(timeout=30)
     assert not app.exception and len(queued) == 4, queued
     assert app.session_state["main_runs"] == (5 if full_app else 1)

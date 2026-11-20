@@ -186,6 +186,7 @@ from utils.shipment_ui import render_shipment_management
 render_shipment_management(DatabaseConfig(backend="sqlite",path=Path({str(config.path)!r})))
 ''').run(timeout=30)
     app.button(key='shipment_edit').click().run()
+    app.button(key="shipment_edit_items").click().run()
     assert not app.toggle(key='shipment_print_preview').disabled
     assert not app.toggle(key='shipment_hide_prices').disabled
     epoch = app.session_state['shipment_epoch']
@@ -526,6 +527,10 @@ render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(confi
     assert len(list_shipments(config)) == 1
 
     app.button(key='shipment_edit').click().run()
+    assert not app.get("arrow_data_frame")
+    app.button(key='shipment_save').click().run()
+    app.button(key='shipment_cancel_blank_prices').click().run()
+    assert app.get("arrow_data_frame")
     epoch = app.session_state['shipment_epoch']
     app.session_state[f'shipment_{epoch}_items'] = {
         'edited_rows': {0: {'單價': 125.0}}, 'added_rows': [], 'deleted_rows': [],
