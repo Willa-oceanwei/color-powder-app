@@ -1,4 +1,5 @@
 import ast
+import json
 from pathlib import Path
 import re
 
@@ -6,10 +7,15 @@ import pandas as pd
 import pytest
 
 from utils.color_powder_repository import ColorPowderInput, create_color_powder
-from utils.database import DatabaseConfig, initialize_database
-from utils.production_order_repository import create_production_order, list_production_orders, set_production_order_cancelled
+from utils.database import DatabaseConfig, connect_from_config, initialize_database
+from utils.production_order_repository import (
+    create_production_order, list_production_orders, set_production_order_cancelled,
+    update_production_order,
+)
 from utils.recipe_repository import create_recipe, normalize_color_powder_id
-from utils.production_inventory import active_production_orders, prepare_inventory_orders, RESULT_KEYS
+from utils.production_inventory import (
+    active_production_orders, prepare_inventory_orders, recorded_inventory_consumption, RESULT_KEYS,
+)
 
 
 def usage_function():
@@ -68,6 +74,98 @@ def test_existing_cached_results_expire_once_without_mutating_history():
     assert before.loc[1, "取消狀態"] == "已取消"
 
 
+def test_unavailable_recipe_uses_complete_original_snapshot():
+    snapshot = {
+        "recipe_id": "R1",
+        "components": [{"position": 1, "colorpowder_id": "P1", "weight": 5}],
+        "net_weight": 10,
+        "total_category": "料",
+        "additional_recipes": [],
+    }
+    orders = pd.DataFrame([{
+        "生產單號": "A", "配方編號": "R1", "生產時間": "2026-10-30 09:00:00",
+        "包裝重量1": "10", "包裝份數1": "2", "_recipe_snapshot_json": json.dumps(snapshot),
+    }])
+    recipes = pd.DataFrame()
+    orders["_inventory_consumption"] = recorded_inventory_consumption(orders, recipes)
+    calculate = usage_function()
+    assert calculate("P1", orders, recipes, "2026-10-01", "2026-11-01") == 100
+    assert calculate("料", orders, recipes, "2026-10-01", "2026-11-01") == 100
+    del snapshot["additional_recipes"]
+    orders["_recipe_snapshot_json"] = json.dumps(snapshot)
+    assert recorded_inventory_consumption(orders, recipes) == [None]
+    orders["附加配方"] = "[]"
+    assert recorded_inventory_consumption(orders, recipes)[0]["pigments"] == {"P1": 100}
+
+
+def test_preview_archive_is_independent_of_approved_inventory_recovery(tmp_path):
+    config = DatabaseConfig(backend="sqlite", path=tmp_path / "inventory.db")
+    initialize_database(config.path)
+    create_color_powder(config, ColorPowderInput("P1"))
+    recipe = {"配方編號": "R1", "色粉編號1": "P1", "色粉重量1": "5"}
+    create_recipe(config, recipe)
+    order = {"生產單號": "A", "配方編號": "R1", "包裝重量1": "10", "包裝份數1": "2"}
+    create_production_order(config, order)
+    evidence = {
+        "order": order, "recipe": recipe, "additional_recipes": [],
+        "source": "原始試算表版本 2026-07-28 15:22",
+    }
+    with connect_from_config(config) as conn:
+        conn.execute("UPDATE production_orders SET recipe_snapshot_json=NULL WHERE production_order_id='A'")
+        conn.execute("UPDATE production_order_history_previews SET evidence_json=? WHERE production_order_id='A'",
+                     (json.dumps(evidence),))
+
+    def read_orders():
+        return pd.DataFrame(list_production_orders(
+            config, include_recipe_snapshot=True, include_inventory_evidence=True,
+        ))
+
+    assert recorded_inventory_consumption(read_orders(), pd.DataFrame()) == [None]
+    with connect_from_config(config) as conn:
+        conn.execute("INSERT INTO production_order_inventory_recoveries VALUES (?, ?, ?)",
+                     ("A", json.dumps(evidence), "2026-11-20"))
+        conn.execute("DELETE FROM production_order_history_previews WHERE production_order_id='A'")
+    orders = read_orders()
+    assert recorded_inventory_consumption(orders, pd.DataFrame())[0]["pigments"] == {"P1": 100}
+    orders["包裝份數1"] = "3"
+    assert recorded_inventory_consumption(orders, pd.DataFrame()) == [None]
+
+
+def test_new_order_uses_frozen_consumption_after_master_recipe_changes(tmp_path):
+    config = DatabaseConfig(backend="sqlite", path=tmp_path / "inventory.db")
+    initialize_database(config.path)
+    create_color_powder(config, ColorPowderInput("P1"))
+    recipe = {"配方編號": "R1", "色粉編號1": "P1", "色粉重量1": "5"}
+    create_recipe(config, recipe)
+    order = {
+        "生產單號": "A", "配方編號": "R1", "生產時間": "2026-10-30 09:00:00",
+        "包裝重量1": "10", "包裝份數1": "2",
+    }
+    create_production_order(config, order)
+    with connect_from_config(config) as conn:
+        archived = conn.execute(
+            "SELECT evidence_json FROM production_order_history_previews WHERE production_order_id='A'"
+        ).fetchone()[0]
+    assert json.loads(archived)["order"]["包裝份數1"] == "2"
+    assert json.loads(archived)["recipe"]["色粉重量1"] == "5.0"
+    master_after_edit = pd.DataFrame([{**recipe, "色粉重量1": "99"}])
+
+    def current_usage():
+        orders = pd.DataFrame(list_production_orders(config, include_recipe_snapshot=True))
+        orders["_inventory_consumption"] = recorded_inventory_consumption(orders, master_after_edit)
+        return usage_function()("P1", orders, master_after_edit, "2026-10-01", "2026-11-01")
+
+    snapshot = json.loads(list_production_orders(config, include_recipe_snapshot=True)[0]["_recipe_snapshot_json"])
+    assert snapshot["inventory_consumption_v1"]["grams"]["pigments"] == {"P1": 100}
+    assert current_usage() == 100
+    update_production_order(config, {**order, "包裝份數1": "3"})
+    assert current_usage() == 150
+    set_production_order_cancelled(config, "A", cancelled=True, reason="測試")
+    assert current_usage() == 0
+    set_production_order_cancelled(config, "A", cancelled=False)
+    assert current_usage() == 150
+
+
 @pytest.mark.parametrize("row, expected", [
     ({"生產單號": "legacy"}, True),
     ({"取消狀態": " 有效 ", "取消時間": ""}, True),
@@ -92,8 +190,8 @@ def test_inventory_entry_refreshes_orders_once_and_uses_the_latest_lifecycle():
     calls = []
     rows = [{"生產單號": "A", "取消狀態": "有效"}]
 
-    def read_orders(config, *, include_cancelled):
-        assert include_cancelled
+    def read_orders(config, *, include_cancelled, include_recipe_snapshot, include_inventory_evidence):
+        assert include_cancelled and include_recipe_snapshot and include_inventory_evidence
         calls.append(config)
         return rows
 

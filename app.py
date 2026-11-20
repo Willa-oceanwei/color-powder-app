@@ -2311,29 +2311,13 @@ def fmt_num(val, digits=2):
 
 def parse_pack_value(raw_val):
     """將包裝重量/份數轉為數值，容忍包含單位或符號的輸入（例如 30K、25kg、1,200）。"""
-    if raw_val is None:
-        return 0.0
-    text = str(raw_val).strip()
-    if not text:
-        return 0.0
-    text = text.replace(",", "")
-    match = re.search(r"-?\d+(?:\.\d+)?", text)
-    if not match:
-        return 0.0
-    try:
-        return float(match.group(0))
-    except Exception:
-        return 0.0
+    from utils.production_consumption import parse_pack_value as parse_value
+    return parse_value(raw_val)
 
 def calc_packs_total_kg(order_row):
     """依生產單包裝重量/份數，計算總包裝量（kg）。"""
-    packs_total = 0.0
-    for j in range(1, 5):
-        packs_total += (
-            parse_pack_value(order_row.get(f"包裝重量{j}", 0)) *
-            parse_pack_value(order_row.get(f"包裝份數{j}", 0))
-        )
-    return packs_total
+    from utils.production_consumption import package_total
+    return package_total(order_row)
 
 def colorant_shipment_display_multiplier(order_row):
     """Return the display multiplier for colorant package weights.
@@ -10861,7 +10845,11 @@ elif menu == "庫存區":
         from utils.production_inventory import prepare_inventory_orders
         try:
             inventory_orders = pd.DataFrame(
-                list_production_orders(DATABASE_CONFIG, include_cancelled=True)
+                list_production_orders(
+                    DATABASE_CONFIG, include_cancelled=True,
+                    include_recipe_snapshot=inventory_view in ("query", "audit"),
+                    include_inventory_evidence=inventory_view in ("query", "audit"),
+                )
             ).fillna("")
             st.session_state.df_order = inventory_orders
             df_order = prepare_inventory_orders(st.session_state, inventory_orders)
@@ -10978,9 +10966,6 @@ elif menu == "庫存區":
                     recipe_df_copy[mask_total]["配方編號"].map(normalize_recipe_id).tolist()
                 )
     
-        if not candidate_ids and not candidate_total_ids:
-            return 0.0
-    
         s_dt = pd.to_datetime(start_dt, errors="coerce")
         e_dt = pd.to_datetime(end_dt,   errors="coerce")
     
@@ -10989,6 +10974,10 @@ elif menu == "庫存區":
             (df_order_local["生產時間"] > s_dt) &
             (df_order_local["生產時間"] <= e_dt)
         ]
+        if not candidate_ids and not candidate_total_ids:
+            if "_inventory_consumption" not in orders_in_range:
+                return 0.0
+            orders_in_range = orders_in_range[orders_in_range["_inventory_consumption"].notna()]
     
         # 先建一次「主配方 + 附加配方」查找表，避免每筆訂單都重複篩選 DataFrame
         recipe_rows_map = {}
@@ -11014,6 +11003,12 @@ elif menu == "庫存區":
                 recipe_rows_map[rid] = rows
 
         for _, order in orders_in_range.iterrows():
+            recorded = order.get("_inventory_consumption")
+            if isinstance(recorded, dict):
+                total_usage_g += recorded["pigments"].get(powder_id, 0.0)
+                total_usage_g += recorded["categories"].get(powder_id.upper(), 0.0)
+                continue
+
             packs_total_kg = calc_packs_total_kg(order)
 
             if packs_total_kg <= 0:
@@ -11064,7 +11059,7 @@ elif menu == "庫存區":
         try:
             if pd.isna(start_dt) or pd.isna(end_dt) or start_dt > end_dt:
                 return 0.0
-            if df_order.empty or df_recipe.empty:
+            if df_order.empty:
                 return 0.0
             return calc_usage_for_stock(pid, df_order, df_recipe, start_dt, end_dt)
         except Exception:
@@ -11154,7 +11149,10 @@ elif menu == "庫存區":
             return pd.NaT
 
         if not df_order_copy.empty:
+            from utils.production_inventory import recorded_inventory_consumption
+
             df_order_copy["生產時間"] = df_order_copy.apply(get_order_datetime, axis=1)
+            df_order_copy["_inventory_consumption"] = recorded_inventory_consumption(df_order_copy, df_recipe)
 
         allowed_ids = None
         if category_filter:
@@ -11182,6 +11180,9 @@ elif menu == "庫存區":
                         pids_from_recipe.extend(
                             df_recipe[col_name].dropna().astype(str).str.strip().tolist()
                         )
+            for recorded in df_order_copy.get("_inventory_consumption", ()):
+                if isinstance(recorded, dict):
+                    pids_from_recipe.extend(recorded["pigments"])
 
             all_pids_all = sorted(set(pids_from_stock) | set(pids_from_recipe))
 
@@ -11254,7 +11255,7 @@ elif menu == "庫存區":
 
             usage_qty = (
                 safe_calc_usage(pid, df_order_copy, df_recipe, calc_start_dt, end_dt)
-                if not df_order.empty and not df_recipe.empty else 0.0
+                if not df_order.empty else 0.0
             )
 
             final_g = ini_value + in_qty - usage_qty

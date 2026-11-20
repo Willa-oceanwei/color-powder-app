@@ -50,6 +50,7 @@ MAIN_TABLES = {
     "production_orders",
     "production_order_packages",
     "production_order_history_previews",
+    "production_order_inventory_recoveries",
     "outsourcing_orders",
     "outsourcing_deliveries",
     "outsourcing_returns",
@@ -417,6 +418,11 @@ CREATE TABLE IF NOT EXISTS production_order_history_previews (
     evidence_json TEXT NOT NULL CHECK(json_valid(evidence_json)),
     verified_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS production_order_inventory_recoveries (
+    production_order_id TEXT NOT NULL PRIMARY KEY REFERENCES production_orders(production_order_id),
+    evidence_json TEXT NOT NULL CHECK(json_valid(evidence_json)),
+    verified_at TEXT NOT NULL
+);
 """
 
 SALES_RETURN_SCHEMA = """
@@ -452,7 +458,10 @@ def _initialize_schema(conn: SqlExecutor) -> None:
         if not _is_missing_schema_migrations_error(exc):
             raise
         health = None
-    metadata_tables = CARWASH_MERGE_TABLES | {"recipe_code_reviews", "production_order_history_previews", "sales_returns"}
+    metadata_tables = CARWASH_MERGE_TABLES | {
+        "recipe_code_reviews", "production_order_history_previews",
+        "production_order_inventory_recoveries", "sales_returns",
+    }
     if (health is not None
             and (health.schema_version in (32, 33, 34, 35)
                  or (health.schema_version == SCHEMA_VERSION

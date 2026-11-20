@@ -34,7 +34,7 @@ def list_inventory_movements(config):
 def list_recipes(config):
     reads.append('recipes')
     return []
-def list_production_orders(config, *, include_cancelled):
+def list_production_orders(config, *, include_cancelled, include_recipe_snapshot=False, include_inventory_evidence=False):
     assert include_cancelled
     reads.append('orders')
     if st.session_state.get('orders_unavailable'):
