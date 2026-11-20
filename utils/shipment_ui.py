@@ -517,18 +517,18 @@ def _render_shipment_output(config, document, *, workspace_id, preview, prepare_
         if preview or prepare_export:
             try:
                 snapshot = _draft_print_document(document)
-                html = _cached_print(config, snapshot, **options)
+                print_html = _cached_print(config, snapshot, **options)
             except ShipmentError as error:
                 if preview:
                     preview_slot.info(str(error))
             else:
                 if prepare_export:
-                    prepared = {"signature": signature, "html": html,
+                    prepared = {"signature": signature, "html": print_html,
                                 "filename": (snapshot["shipment_number"] or "未儲存出貨單") + ".html"}
                     st.session_state.shipment_draft_export = prepared
                 if preview:
                     with preview_slot:
-                        components.html(theme_preview(html), height=550, scrolling=True)
+                        components.html(theme_preview(print_html), height=550, scrolling=True)
         if prepared:
             st.download_button("下載列印版", prepared["html"], file_name=prepared["filename"],
                                mime="text/html", on_click="ignore", use_container_width=True)
@@ -540,12 +540,12 @@ def _render_shipment_output(config, document, *, workspace_id, preview, prepare_
     elif st.session_state.get("shipment_prepared_saved_export") != export_key:
         st.session_state.pop("shipment_prepared_saved_export", None)
     if preview or st.session_state.get("shipment_prepared_saved_export") == export_key:
-        html = _cached_print(config, document, **options)
-        st.download_button("下載列印版", html, file_name=document["shipment_number"] + ".html",
+        print_html = _cached_print(config, document, **options)
+        st.download_button("下載列印版", data=print_html, file_name=document["shipment_number"] + ".html",
                            mime="text/html", on_click="ignore", use_container_width=True)
         if preview:
             with preview_slot:
-                components.html(theme_preview(html), height=550, scrolling=True)
+                components.html(theme_preview(print_html), height=550, scrolling=True)
     return context.current_fragment_id
 
 
