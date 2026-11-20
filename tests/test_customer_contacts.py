@@ -222,6 +222,7 @@ render_shipment_management(DatabaseConfig(backend="sqlite",path=Path({str(config
     assert draft["address"] == "Specified address" and draft["phone"] == "Saved phone"
     assert draft["fax"] == "06-0023456" and draft["contact"] == "Contact" and draft["tax_id"] == "01234567"
     assert get_shipment(config, saved["id"])["contact"] == ""
+    next(w for w in app.radio if w.label == "明細分頁").set_value("相關資料").run()
     next(w for w in app.text_input if w.label == "聯絡人").set_value("").run()
     app.run()
     assert app.session_state["shipment_draft"]["contact"] == "" and len(reads) == 1
@@ -273,6 +274,7 @@ render_shipment_management(DatabaseConfig(backend="sqlite",path=Path({str(config
     next(w for w in app.selectbox if w.label == "客戶").set_value("C01").run()
     assert not app.exception
     assert next(w for w in app.text_input if w.label == "送貨地址").value == "台南市測試路1號"
+    next(w for w in app.radio if w.label == "明細分頁").set_value("相關資料").run()
     assert next(w for w in app.text_input if w.label == "聯絡人").value == "林小姐"
     next(w for w in app.text_input if w.label == "送貨地址").set_value("本次指定地址").run()
     epoch = app.session_state["shipment_epoch"]
@@ -291,8 +293,10 @@ render_shipment_management(DatabaseConfig(backend="sqlite",path=Path({str(config
     app.button(key="shipment_edit").click().run()
     assert not app.exception, [error.message for error in app.exception]
     assert next(w for w in app.text_input if w.label == "送貨地址").value == "本次指定地址"
+    next(w for w in app.toggle if w.label == "搜尋／更換客戶").set_value(True).run()
     next(w for w in app.selectbox if w.label == "客戶").set_value("C02").run()
     assert next(w for w in app.text_input if w.label == "送貨地址").value == ""
+    next(w for w in app.radio if w.label == "明細分頁").set_value("相關資料").run()
     assert next(w for w in app.text_input if w.label == "聯絡電話").value == ""
     next(w for w in app.selectbox if w.label == "客戶").set_value("C01").run()
     assert next(w for w in app.text_input if w.label == "送貨地址").value == "新版地址"
@@ -315,6 +319,7 @@ render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(confi
     prefix = f"shipment_{epoch}_"
     app.selectbox(key=prefix + "number_mode").set_value("依日期生成").run()
     app.selectbox(key=prefix + "customer_picker").set_value("C01").run()
+    app.radio(key=prefix + "detail_section").set_value("相關資料").run()
     app.text_input(key=prefix + "address").set_value("本次指定地址")
     app.text_input(key=prefix + "phone").set_value("").run()
     app.session_state[prefix + "items"] = {"edited_rows": {}, "deleted_rows": [], "added_rows": [

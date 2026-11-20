@@ -363,6 +363,7 @@ render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(confi
     assert not app.exception
     app.button(key='shipment_edit').click().run()
     assert app.button(key='shipment_nav_上一筆').disabled
+    next(widget for widget in app.radio if widget.label == '明細分頁').set_value('發票資料').run()
     invoice_input = next(widget for widget in app.text_input if widget.label == '發票編號')
     invoice_input.set_value('AB12345678').run()
     invoice_date = next(widget for widget in app.date_input if widget.label == '發票日期')

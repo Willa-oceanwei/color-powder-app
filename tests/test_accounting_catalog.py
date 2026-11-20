@@ -241,6 +241,7 @@ render_shipment_management(DatabaseConfig(backend="sqlite",path=Path({str(config
     assert app.session_state["shipment_draft"]["tax_rate"] == "0"
     app.selectbox(key=key + "tax_rate").set_value(5).run()
     assert not app.exception and app.session_state["shipment_draft"]["tax_mode"] == "外加"
+    app.radio(key=key + "detail_section").set_value("發票資料").run()
     app.selectbox(key=key + "tax_mode").set_value("內含").run()
     assert not app.exception and app.session_state["shipment_draft"]["tax_rate"] == "5"
     app.selectbox(key=key + "tax_mode").set_value("免稅").run()
@@ -264,6 +265,7 @@ render_shipment_management(DatabaseConfig(backend="sqlite",path=Path({str(config
         {"貨品編號": "R1", "品名": "藍", "單位": "包", "數量": 1.0, "單價": 1000.0}]}
     app.run()
     assert not app.exception
+    app.radio(key=prefix + "detail_section").set_value("發票資料").run()
     assert app.text_input(key=prefix + "invoice_amount").value == "50"
     assert app.selectbox(key=prefix + "invoice_method").value == "隨單開立"
     assert app.selectbox(key=prefix + "invoice_type").value == "收銀機"
@@ -291,6 +293,7 @@ render_shipment_management(DatabaseConfig(backend="sqlite",path=Path({str(config
     assert not app.exception
     assert "shipment_draft" in app.session_state
     prefix = f"shipment_{app.session_state['shipment_epoch']}_"
+    app.radio(key=prefix + "detail_section").set_value("發票資料").run()
     assert app.text_input(key=prefix + "invoice_amount").value == "75"
 
 
