@@ -33,7 +33,7 @@ from utils.big_label_repository import (
     BIG_LABEL_EDITOR_COLUMNS, build_big_label_editor_defaults,
     normalize_big_label_editor_rows, remember_big_label_rows, expand_big_label_editor_rows, format_label_ratio_value,
 )
-from utils.shipment_ui import SHIPMENT_SAVE_AFTER_GRID_EDIT, render_shipment_management
+from utils.shipment_ui import SHIPMENT_BROWSER_CONTROLS, render_shipment_management
 from utils.sales_return_ui import render_sales_returns
 from utils.scheduled_quote_ui import render_scheduled_quotes
 from utils.carwash_inventory_ui import show_carwash_save_notice
@@ -1280,7 +1280,7 @@ def apply_browser_state_handlers():
           }, 200);
         })();
         </script>
-        """ + SHIPMENT_SAVE_AFTER_GRID_EDIT,
+        """ + SHIPMENT_BROWSER_CONTROLS,
         height=0,
         width=0,
     )

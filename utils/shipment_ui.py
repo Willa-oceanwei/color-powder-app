@@ -107,6 +107,9 @@ body:has(.erp-title):has(#shipment-page) [data-testid="stPopoverBody"] button {b
 .stApp:has(.erp-title) :is(.stMain, section.main):has(#shipment-page) [data-testid="stCheckbox"] label span,
 .stApp:has(.erp-title) :is(.stMain, section.main):has(#shipment-page) .shipment-total,
 .stApp:has(.erp-title) :is(.stMain, section.main):has(#shipment-page) #shipment-toolbar {color:#d5e1ec!important;}
+#shipment-toolbar .shipment-action-wait {display:none;}
+[data-shipment-action-pending] #shipment-toolbar .shipment-action-wait {display:inline;}
+[data-shipment-action-pending] #shipment-toolbar .shipment-position {display:none;}
 /* Keep item actions beside their heading, including when global mobile
    styles would otherwise stack every column at full width. */
 :is(.stMain, section.main):has(#shipment-page) [data-testid="stHorizontalBlock"]:has(.shipment-item-heading) {flex-wrap:nowrap!important;align-items:center;}
@@ -123,35 +126,119 @@ body:has(.erp-title):has(#shipment-page) [data-testid="stPopoverBody"] button {b
 </style>
 """
 
-# Streamlit 1.45 sends data-editor changes through a client-side debounce.
-# A click can close the active cell before its new value reaches widget state.
-SHIPMENT_SAVE_AFTER_GRID_EDIT = """
+# Streamlit 1.45 reports a rerun through the app root, including fragment runs.
+SHIPMENT_BROWSER_CONTROLS = """
 <script>
 (() => {
     const appWindow = window.parent;
     const page = appWindow.document;
-    if (page.documentElement.dataset.shipmentSaveDelay) return;
-    page.documentElement.dataset.shipmentSaveDelay = "true";
+    if (page.documentElement.dataset.shipmentControlsBound) return;
+    page.documentElement.dataset.shipmentControlsBound = "true";
+    const chromium = /(?:Chrome|Chromium|Edg)\\//.test(appWindow.navigator.userAgent);
     const scopePrefix = "st-key-shipment_save_scope_";
     const saveButton = ".st-key-shipment_save button";
-    const pending = new Set();
+    const savedClicks = new Set();
+    const actionControls = [
+        ".st-key-shipment_new", ".st-key-shipment_edit", ".st-key-shipment_copy",
+        ".st-key-shipment_cancel", ".st-key-shipment_save", '[class*="st-key-shipment_nav_"]',
+        ".st-key-shipment_print_preview", ".st-key-shipment_hide_prices",
+        ".st-key-shipment_edit_items", ".st-key-shipment_add_recipe",
+        '[class*="_show_product_search"]', '[class*="_show_customer_search"]',
+        '[class*="_detail_section"]', '[class*="_edit_item_notes"]',
+        ".st-key-shipment_confirm_blank_prices", ".st-key-shipment_cancel_blank_prices",
+    ].join(",");
+    let pendingAction = null;
+
+    function getAction(target, includeLabel = false) {
+        if (!page.getElementById("shipment-page")) return null;
+        const element = target.closest?.(includeLabel ? "button,input,label" : "button,input");
+        const control = element?.matches("label") ? element.querySelector("input") : element;
+        return control && !control.disabled && control.closest(actionControls) ? control : null;
+    }
+
+    function release() {
+        if (!pendingAction) return;
+        const {app, watcher, timer} = pendingAction;
+        watcher.disconnect();
+        appWindow.clearTimeout(timer);
+        delete app.dataset.shipmentActionPending;
+        pendingAction = null;
+    }
+
+    function activeAction() {
+        if (pendingAction && (!pendingAction.app.isConnected || !page.getElementById("shipment-page"))) release();
+        return pendingAction;
+    }
+
+    function afterIdle() {
+        const action = activeAction();
+        if (!action || action.readyAfter === null) return;
+        const remaining = action.readyAfter - appWindow.performance.now();
+        if (remaining > 0) {
+            appWindow.clearTimeout(action.timer);
+            action.timer = appWindow.setTimeout(afterIdle, remaining);
+            return;
+        }
+        const state = action.app.dataset.testScriptState;
+        if (!["running", "rerunRequested", "stopRequested"].includes(state)) release();
+    }
+
+    function beginAction(control) {
+        const app = control.closest('[data-testid="stApp"]');
+        if (!app) return;
+        const watcher = new appWindow.MutationObserver(afterIdle);
+        pendingAction = {app, watcher, readyAfter: null, timer: null};
+        app.dataset.shipmentActionPending = "true";
+        watcher.observe(app, {attributes: true, attributeFilter: ["data-test-script-state"]});
+    }
+
+    function dispatched() {
+        if (!pendingAction) return;
+        // A short window also covers reruns that finish before React paints.
+        pendingAction.readyAfter = appWindow.performance.now() + 450;
+        afterIdle();
+    }
+
+    if (chromium) page.addEventListener("pointerdown", (event) => {
+        if (event.isTrusted && activeAction() && getAction(event.target, true)) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+        }
+    }, true);
+
     page.addEventListener("click", (event) => {
+        if (!event.isTrusted) return;
+        const action = chromium && getAction(event.target);
+        if (action) {
+            if (activeAction()) {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                return;
+            }
+            beginAction(action);
+        }
         const button = event.target.closest?.(saveButton);
         const scope = button?.closest('[class*="' + scopePrefix + '"]');
-        if (!event.isTrusted || !button || button.disabled || !scope) return;
-        const draft = Array.from(scope.classList).find(name => name.startsWith(scopePrefix));
-        if (!draft) return;
-        const epoch = draft.slice(scopePrefix.length);
-        if (!page.querySelector('[class*="st-key-shipment_' + epoch + '_items"]')) return;
+        const draft = scope && Array.from(scope.classList).find(name => name.startsWith(scopePrefix));
+        const epoch = draft && draft.slice(scopePrefix.length);
+        if (!draft || button.disabled || !page.querySelector('[class*="st-key-shipment_' + epoch + '_items"]')) {
+            if (action) dispatched();
+            return;
+        }
+        // The data editor debounces its final cell update before a save.
         event.preventDefault();
         event.stopImmediatePropagation();
-        if (pending.has(draft)) return;
-        pending.add(draft);
+        if (savedClicks.has(draft)) return;
+        savedClicks.add(draft);
         appWindow.setTimeout(() => {
-            pending.delete(draft);
-            // The grid's update may already have redrawn the toolbar.
+            savedClicks.delete(draft);
             const current = page.querySelector("." + draft + " " + saveButton);
-            if (current && !current.disabled) current.click();
+            if (current && !current.disabled) {
+                if (action) dispatched();
+                current.click();
+            } else if (action) {
+                release();
+            }
         }, 250);
     }, true);
 })();
@@ -827,7 +914,9 @@ def render_shipment_management(config, *, start_new_on_entry=False):
         col.button(label, key="shipment_nav_" + label, disabled=editing or (not showing_saved and target_id is None),
                    use_container_width=True, on_click=_navigate_shipment, args=(target_id, direction))
     position = "已儲存" if showing_saved else f"{index + 1 if ids else 0} / {len(ids)}"
-    tools[7].markdown(f'<span id="shipment-toolbar" style="font-size:12px">{position}</span>', unsafe_allow_html=True)
+    tools[7].markdown(f'<span id="shipment-toolbar" role="status" style="font-size:12px">'
+                      f'<span class="shipment-position">{position}</span>'
+                      '<span class="shipment-action-wait">處理中</span></span>', unsafe_allow_html=True)
     with tools[8].popover("列印／匯出", use_container_width=True), st.container():
         output = st.selectbox("列印用途", ("實體列印", "另存 PDF（置中）"), key="shipment_output_mode")
         output_mode = "pdf" if output.startswith("另存 PDF") else "print"
