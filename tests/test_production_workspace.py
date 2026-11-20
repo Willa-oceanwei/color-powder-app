@@ -476,7 +476,16 @@ def test_first_label_save_survives_selection_reset(production_config, label_kind
 
 def test_order_preview_can_open_label_editor(production_config):
     app = workspace_app(production_config, "manage").run(timeout=30)
-    app.toggle(key="show_labels_tab3_P001").set_value(True).run()
+    label_toggle = app.toggle(key="show_labels_tab3_P001")
+    a5_download = next(item for item in app.get("download_button")
+                       if item.proto.id.endswith("-download_a5_tab3_P001"))
+    assert any(
+        any(label_toggle in list(column) for column in row.children.values())
+        and any(a5_download in list(column) and label_toggle not in list(column)
+                for column in row.children.values())
+        for row in app.get("horizontal")
+    )
+    label_toggle.set_value(True).run()
     assert not app.exception
     assert app.radio(key="tab3_label_kind_P001").value == "大標籤"
     assert app.button(key="FormSubmitter:tab3_label_form_P001-儲存並更新標籤")

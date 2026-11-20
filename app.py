@@ -7732,9 +7732,7 @@ def render_production_order_workspace():
                     )
 
             with preview_tab:
-                head_col, opt_col, download_col = st.columns([5, 2, 2])
-                with head_col:
-                    st.caption("下方為目前選擇生產單的完整列印預覽內容。")
+                opt_col, label_col, download_col = st.columns([2, 1.2, 1.4], vertical_alignment="bottom")
                 with opt_col:
                     if st.session_state.get("_show_ids_tab3_order_no") != current_order_no:
                         st.session_state["_show_ids_tab3_order_no"] = current_order_no
@@ -7750,6 +7748,7 @@ def render_production_order_workspace():
                 preview_a5_data, preview_a5_filename = build_a5_production_order_download(
                     order_dict, show_additional_ids=show_ids
                 )
+                show_labels = label_col.toggle("製作標籤", key=f"show_labels_tab3_{current_order_no}")
                 with download_col:
                     st.download_button(
                         "📥 下載 A5",
@@ -7760,8 +7759,6 @@ def render_production_order_workspace():
                         help="下載 A5 橫式生產單 HTML，開啟檔案後會自動顯示列印視窗。",
                         use_container_width=True,
                     )
-    
-                    show_labels = st.toggle("製作標籤", key=f"show_labels_tab3_{current_order_no}")
                 if show_labels:
                     render_big_label_editor(order_dict, key_prefix="tab3")
 
