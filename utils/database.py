@@ -24,7 +24,7 @@ from typing import Any, Protocol
 from .read_cache import invalidate_read_cache
 
 DEFAULT_DB_PATH = Path("data/colorpowder.db")
-SCHEMA_VERSION = 36
+SCHEMA_VERSION = 37
 LOGGER = logging.getLogger(__name__)
 MAIN_TABLES = {
     "recipe_code_reviews",
@@ -463,7 +463,7 @@ def _initialize_schema(conn: SqlExecutor) -> None:
         "production_order_inventory_recoveries", "sales_returns",
     }
     if (health is not None
-            and (health.schema_version in (32, 33, 34, 35)
+            and (health.schema_version in (32, 33, 34, 35, 36)
                  or (health.schema_version == SCHEMA_VERSION
                      and not metadata_tables.issubset(health.existing_tables)))
             and (MAIN_TABLES - metadata_tables).issubset(health.existing_tables)
