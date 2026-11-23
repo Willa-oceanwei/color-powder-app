@@ -3714,18 +3714,14 @@ def render_order_download_actions(label_order, a5_data, a5_filename):
         render_big_label_editor(label_order, key_prefix="tab2")
 
 
-def render_saved_label_section(snapshot_order, *, a5_downloaded):
+def render_saved_label_section(snapshot_order, *, a5_downloaded, show_label_section):
     order_no_for_label = snapshot_order.get("生產單號", "")
-    header_col, toggle_col = st.columns([5, 1])
-    with header_col:
-        st.markdown(f"""
-            <div class="label-print-card">
-                <div class="lp-title">🏷️ 列印標籤</div>
-                <div class="lp-subtitle">生產單 {order_no_for_label}，{'已下載 A5' if a5_downloaded else '尚未下載 A5'}</div>
-            </div>
-        """, unsafe_allow_html=True)
-    with toggle_col:
-        show_label_section = st.toggle("製作標籤", key=f"show_big_label_{order_no_for_label}", value=False)
+    st.markdown(f"""
+        <div class="label-print-card">
+            <div class="lp-title">🏷️ 列印標籤</div>
+            <div class="lp-subtitle">生產單 {order_no_for_label}，{'已下載 A5' if a5_downloaded else '尚未下載 A5'}</div>
+        </div>
+    """, unsafe_allow_html=True)
     if show_label_section:
         if not a5_downloaded:
             st.caption("ℹ️ 尚未下載 A5 生產單；仍可直接編輯及列印標籤。")
@@ -7282,6 +7278,7 @@ def render_production_order_workspace():
             print_recipe = recipe_row
             print_additions = order.get("附加配方", [])
             saved_snapshot = st.session_state.get("saved_label_snapshot") or {}
+            snapshot_order = get_saved_label_order(saved_snapshot)
             if st.session_state.get("new_order_saved") and "recipe_row" in saved_snapshot:
                 print_order = saved_snapshot["order"]
                 print_recipe = saved_snapshot["recipe_row"]
@@ -7317,7 +7314,7 @@ def render_production_order_workspace():
                 
             st.html(PRODUCTION_A5_ACTION_STYLE)
             actions = st.container(key="production_a5_create_actions")
-            col1, online_col, col2, col3 = actions.columns([2.3, 2.3, 3, 1.3], vertical_alignment="center")
+            col1, online_col, label_col, col3 = actions.columns([2.3, 2.3, 3, 1.3], vertical_alignment="center")
             with col1:
                 # ---------- 產生安全檔名 ----------
                 raw_order_no = str(order.get("生產單號", "未命名")).strip()
@@ -7371,9 +7368,11 @@ def render_production_order_workspace():
                 else:
                     st.info("請先儲存生產單，儲存成功後才能線上列印。")
 
-            # --------------- 新增：生產單大標列印 ---------------
-            snapshot = st.session_state.get("saved_label_snapshot")
-            snapshot_order = get_saved_label_order(snapshot)
+            show_label_section = False
+            if snapshot_order is not None:
+                show_label_section = label_col.toggle(
+                    "製作標籤", key=f"show_big_label_{snapshot_order['生產單號']}"
+                )
 
             st.markdown("""
                 <style>
@@ -7406,7 +7405,10 @@ def render_production_order_workspace():
                     </div>
                 """, unsafe_allow_html=True)
             else:
-                render_saved_label_section(snapshot_order, a5_downloaded=snapshot.get("a5_downloaded", False))
+                render_saved_label_section(
+                    snapshot_order, a5_downloaded=saved_snapshot.get("a5_downloaded", False),
+                    show_label_section=show_label_section,
+                )
  
             if st.button("📥 重新載入生產單資料", key="reload_order_tab1_bottom", use_container_width=True):
                 invalidate_read_cache(DATABASE_CONFIG)
