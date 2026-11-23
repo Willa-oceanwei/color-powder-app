@@ -3714,8 +3714,9 @@ def render_order_download_actions(label_order, a5_data, a5_filename):
         render_big_label_editor(label_order, key_prefix="tab2")
 
 
-def render_saved_label_section(snapshot_order, *, a5_downloaded, show_label_section):
+def render_saved_label_section(snapshot_order, *, a5_downloaded, label_controls=st):
     order_no_for_label = snapshot_order.get("生產單號", "")
+    show_label_section = label_controls.toggle("製作標籤", key=f"show_big_label_{order_no_for_label}")
     st.markdown(f"""
         <div class="label-print-card">
             <div class="lp-title">🏷️ 列印標籤</div>
@@ -7368,12 +7369,6 @@ def render_production_order_workspace():
                 else:
                     st.info("請先儲存生產單，儲存成功後才能線上列印。")
 
-            show_label_section = False
-            if snapshot_order is not None:
-                show_label_section = label_col.toggle(
-                    "製作標籤", key=f"show_big_label_{snapshot_order['生產單號']}"
-                )
-
             st.markdown("""
                 <style>
                 .label-print-card {
@@ -7407,7 +7402,7 @@ def render_production_order_workspace():
             else:
                 render_saved_label_section(
                     snapshot_order, a5_downloaded=saved_snapshot.get("a5_downloaded", False),
-                    show_label_section=show_label_section,
+                    label_controls=label_col,
                 )
  
             if st.button("📥 重新載入生產單資料", key="reload_order_tab1_bottom", use_container_width=True):
