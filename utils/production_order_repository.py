@@ -172,7 +172,26 @@ def list_production_orders(
 ) -> list[dict[str, str]]:
     with connect_from_config(config) as conn:
         where = "" if include_cancelled else "WHERE cancelled_at IS NULL"
-        snapshot_column = ", recipe_snapshot_json" if include_recipe_snapshot else ""
+        snapshot_columns = recipe_joins = ""
+        if include_recipe_snapshot:
+            # Older orders may have only a unit in their payload. Read just the
+            # display metadata; never use it as a production recipe snapshot.
+            snapshot_columns = """
+                , recipe_snapshot_json
+                , COALESCE(NULLIF(TRIM(json_extract(history.evidence_json, '$.recipe."計量單位"')), ''),
+                           recipe.measurement_unit) AS display_unit
+                , COALESCE(NULLIF(TRIM(json_extract(history.evidence_json, '$.recipe."色粉類別"')), ''),
+                           recipe.powder_category) AS display_category
+            """
+            recipe_joins = """
+                LEFT JOIN production_order_history_previews AS history
+                  ON history.production_order_id = production_orders.production_order_id
+                  AND trim(coalesce(recipe_snapshot_json, '')) = ''
+                LEFT JOIN recipes AS recipe
+                  ON recipe.recipe_id = COALESCE(NULLIF(TRIM(production_orders.recipe_id), ''),
+                                                 TRIM(json_extract(production_orders.payload_json, '$."配方編號"')))
+                  AND trim(coalesce(recipe_snapshot_json, '')) = ''
+            """
         evidence_column = """
             , CASE WHEN trim(coalesce(recipe_snapshot_json, '')) = '' THEN (
                 SELECT evidence_json FROM production_order_inventory_recoveries AS recovery
@@ -180,15 +199,17 @@ def list_production_orders(
             ) END AS inventory_evidence
         """ if include_inventory_evidence else ""
         rows = _mappings(conn.execute(
-            f"""SELECT payload_json, cancelled_at, cancel_reason{snapshot_column}{evidence_column}
-                FROM production_orders {where}
-                ORDER BY production_date, production_order_id"""
+            f"""SELECT production_orders.payload_json, cancelled_at, cancel_reason{snapshot_columns}{evidence_column}
+                FROM production_orders {recipe_joins} {where}
+                ORDER BY production_date, production_orders.production_order_id"""
         ))
     result = []
     for row in rows:
         payload = json.loads(row["payload_json"])
         if include_recipe_snapshot:
             payload["_recipe_snapshot_json"] = row["recipe_snapshot_json"] or ""
+            payload["_package_recipe_unit"] = row["display_unit"] or ""
+            payload["_package_recipe_category"] = row["display_category"] or ""
         if include_inventory_evidence and row["inventory_evidence"]:
             payload["_inventory_evidence_json"] = row["inventory_evidence"]
         payload.update({

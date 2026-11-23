@@ -10,7 +10,7 @@ from streamlit.testing.v1.local_script_runner import LocalScriptRunner
 from utils.color_powder_repository import ColorPowderInput, create_color_powder
 from utils.database import DatabaseConfig, connect_from_config, initialize_database
 from utils.production_order_repository import create_production_order, list_production_orders
-from utils.recipe_repository import create_recipe
+from utils.recipe_repository import create_recipe, set_recipe_active
 from test_workspace_performance import queue_updates
 
 
@@ -126,6 +126,38 @@ def test_verified_historical_preview_is_display_only(production_config):
     saved = list_production_orders(production_config, include_recipe_snapshot=True)[0]
     assert saved["顏色"] == "Blue"
     assert not saved["_recipe_snapshot_json"]
+
+
+@pytest.mark.parametrize("view", ["manage", "history"])
+def test_legacy_colorant_quantities_in_production_tables(production_config, view):
+    for recipe_id in ("LEGACY-M", "ARCHIVED-M"):
+        create_recipe(production_config, {
+            "配方編號": recipe_id, "色粉類別": "色母", "計量單位": "kg",
+        })
+    cases = (
+        ("LEGACY", "LEGACY-M", "KG", "", "100K*1"),
+        ("ACTUAL", "LEGACY-M", "kg", "實際公斤（1 = 1kg）", "1kg*1"),
+        ("ARCHIVED", "ARCHIVED-M", "", "", "100K*1"),
+    )
+    for order_id, recipe_id, unit, mode, _ in cases:
+        create_production_order(production_config, {
+            "生產單號": order_id, "配方編號": recipe_id, "計量單位": unit,
+            "包裝重量1": "1", "包裝份數1": "1", "出貨數量顯示方式": mode,
+        })
+    set_recipe_active(production_config, "LEGACY-M", active=False, reason="Archived")
+    with connect_from_config(production_config) as conn:
+        conn.execute("UPDATE production_orders SET recipe_snapshot_json=NULL WHERE production_order_id<>'P001'")
+        conn.execute("UPDATE production_orders SET recipe_id=NULL WHERE production_order_id='LEGACY'")
+        conn.execute("DELETE FROM production_order_history_previews WHERE production_order_id IN ('LEGACY', 'ACTUAL')")
+        conn.execute("UPDATE recipes SET powder_category='配方' WHERE recipe_id='ARCHIVED-M'")
+
+    app = workspace_app(production_config, view).run(timeout=30)
+    assert not app.exception
+    table = next(frame.value for frame in app.dataframe if "出貨數量" in frame.value.columns)
+    quantities = table.set_index("生產單號")["出貨數量"]
+    for order_id, _, _, _, expected in cases:
+        assert quantities[order_id] == expected
+    assert quantities["P001"] == "25K*2"
 
 
 def test_saving_actual_kg_edit_updates_preview(production_config):
