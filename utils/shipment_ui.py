@@ -277,12 +277,21 @@ def _missing_prices(document):
                  if is_blank_price(item.get("price")))
 
 
+def _edit_field_key(prefix, field):
+    if field == "address":
+        revision = st.session_state.get(prefix + "delivery_address_revision", 0)
+        if revision:
+            return f"{prefix}address_{revision}"
+    return prefix + field
+
+
 def _sync_edit_details(document, prefix):
     state = st.session_state
     for field in ("notes", "payment_terms", "paid_in_full", *CONTACT_FIELDS):
-        if prefix + field not in state:
+        key = _edit_field_key(prefix, field)
+        if key not in state:
             continue
-        value = state[prefix + field]
+        value = state[key]
         if field in CONTACT_FIELDS and value != str(document.get(field) or ""):
             document.setdefault("_cleared_contacts", {})[field] = not value.strip()
         document[field] = value
@@ -980,7 +989,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
         if not editing:
             _readonly_field(label, previous)
             return
-        widget_key = prefix + ("invoice_" if target is not None else "") + key
+        widget_key = prefix + "invoice_" + key if target is not None else _edit_field_key(prefix, key)
         value = st.text_input(label, value=widget_default(widget_key, previous), key=widget_key)
         if target is None and key in CONTACT_FIELDS and value != previous:
             document.setdefault("_cleared_contacts", {})[key] = not value.strip()
@@ -1118,9 +1127,15 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                             recipient_id=selected_customer, recipient_name=name)
             for field in CONTACT_FIELDS:
                 document[field] = customer.get(field) or ""
+            # A rerun already sent by the browser can still contain the old
+            # address. Give the new delivery address its own widget identity.
+            state = st.session_state
+            state.pop(_edit_field_key(prefix, "address"), None)
+            revision_key = prefix + "delivery_address_revision"
+            state[revision_key] = state.get(revision_key, 0) + 1
             # Update delivery widgets before they are rendered in this run.
             for field in ("recipient_id", "recipient_name", *CONTACT_FIELDS):
-                st.session_state[prefix + field] = document[field]
+                state[_edit_field_key(prefix, field)] = document[field]
     else:
         with header[3]:
             _readonly_field("客戶", f"{document['customer_id']} · {current_customer_label()}"
