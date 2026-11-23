@@ -4198,6 +4198,14 @@ elif menu == "配方管理":
         "合計類別", "重要提醒", "備註", "建檔時間", "生命週期", "停用時間", "停用原因"
     ]
 
+    def remember_recipe_management_frame(frame):
+        st.session_state.df = frame
+        st.session_state.df_recipe = frame
+        st.session_state.recipe_management_df = frame
+        # Production needs the active recipes as normalized by the repository,
+        # including numeric fields that the recipe form supplies as text.
+        st.session_state.production_data_loaded = False
+
     # ================================================================
     # 📌 Turso 是代工單與送達／載回 ledger 的正式資料來源。
     # ================================================================
@@ -4240,9 +4248,7 @@ elif menu == "配方管理":
         except Exception:
             df_c = pd.DataFrame(columns=["客戶編號", "客戶簡稱"])
 
-        st.session_state.df_recipe          = df_r
-        st.session_state.recipe_management_df = df_r
-        st.session_state.df                 = df_r
+        remember_recipe_management_frame(df_r)
         st.session_state.df_color           = df_p.astype(str)
         st.session_state._recipe_customers  = df_c
         st.session_state.recipe_data_loaded = True
@@ -4286,10 +4292,7 @@ elif menu == "配方管理":
             last_idx = df_to_save.index[-1]
             create_recipe(DATABASE_CONFIG, df_to_save.loc[last_idx].to_dict())
 
-        # 同步 session_state
-        st.session_state.df        = df_to_save
-        st.session_state.df_recipe = df_to_save
-        st.session_state.recipe_management_df = df_to_save
+        remember_recipe_management_frame(df_to_save)
         return True
 
     # ================================================================
@@ -4586,9 +4589,7 @@ elif menu == "配方管理":
             try:
                 invalidate_recipe_powders(st.session_state)
                 latest_df = pd.DataFrame(list_recipes(DATABASE_CONFIG, include_inactive=True))
-                st.session_state.df = latest_df.copy()
-                st.session_state.df_recipe = latest_df.copy()
-                st.session_state.recipe_management_df = latest_df.copy()
+                remember_recipe_management_frame(latest_df)
                 st.session_state.recipe_toast = {"msg": "已從 Google Sheet 重新載入配方資料", "icon": "🔄"}
             except Exception as e:
                 st.session_state.recipe_toast = {"msg": f"重新載入失敗：{e}", "icon": "❌"}
@@ -5005,9 +5006,6 @@ elif menu == "配方管理":
                                 edit_index=idx,
                                 original_recipe_id=code,
                             )
-                            st.session_state.df_recipe = df_recipe
-                            st.session_state.recipe_management_df = df_recipe
-                            st.session_state.df        = df_recipe
                             success_message = (
                                 f"配方編號已由 {original_recipe_code} 修改為 {new_recipe_code}，"
                                 "配方資料已成功更新！"
@@ -5752,9 +5750,7 @@ pre {{
                                         df_recipe_new = pd.concat(
                                             [df_recipe, pd.DataFrame([new_recipe])], ignore_index=True
                                         )
-                                        st.session_state.df_recipe = df_recipe_new
-                                        st.session_state.recipe_management_df = df_recipe_new
-                                        st.session_state.df        = df_recipe_new
+                                        remember_recipe_management_frame(df_recipe_new)
                                         st.success(f"✅ 配方 {calc['new_code']} 已新增至 Turso，等待 Sheet PUSH！")
                                         st.balloons()
                                     except Exception as e:

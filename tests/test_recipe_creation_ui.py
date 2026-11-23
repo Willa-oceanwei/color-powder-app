@@ -4,7 +4,9 @@ from textwrap import dedent
 
 from streamlit.testing.v1 import AppTest
 
+from test_production_workspace import workspace_app
 from utils.database import DatabaseConfig, initialize_database
+from utils.production_order_repository import list_production_orders
 from utils.recipe_repository import create_recipe, list_recipes
 
 
@@ -15,6 +17,10 @@ def recipe_creation_app(config):
                   and ast.unparse(n.test) == "menu == '配方管理'")
     columns = next(n for n in branch.body if isinstance(n, ast.Assign)
                    and any(isinstance(t, ast.Name) and t.id == "columns" for t in n.targets))
+    recipe_save_helpers = "\n\n".join(
+        ast.unparse(node) for node in branch.body
+        if isinstance(node, ast.FunctionDef) and node.name in {"remember_recipe_management_frame", "save_recipe_row"}
+    )
     section = dedent(source.split("# Tab 1：配方建立", 1)[1].split("# Tab 2：配方記錄表", 1)[0])
     script = f'''import sys
 sys.path.insert(0, {str(root)!r})
@@ -23,7 +29,7 @@ from datetime import datetime
 import pandas as pd
 import streamlit as st
 from utils.database import DatabaseConfig
-from utils.recipe_repository import create_recipe, list_recipes
+from utils.recipe_repository import create_recipe, list_recipes, update_recipe
 DATABASE_CONFIG = DatabaseConfig(backend="sqlite", path=Path({str(config.path)!r}))
 {ast.unparse(columns)}
 df = pd.DataFrame(list_recipes(DATABASE_CONFIG), columns=columns)
@@ -34,12 +40,36 @@ class Display:
     def selectbox(self, target, label, options, **kwargs):
         return target.selectbox(label, options, **kwargs)
 customer_display = Display()
-def save_recipe_row(frame, **kwargs):
-    create_recipe(DATABASE_CONFIG, frame.iloc[-1].to_dict())
+{recipe_save_helpers}
 tab1 = st.container()
 {section}
 '''
     return AppTest.from_string(script).run(timeout=30)
+
+
+def test_new_recipe_can_be_used_in_existing_production_session_without_reload(tmp_path):
+    config = DatabaseConfig(backend="sqlite", path=tmp_path / "production.db")
+    initialize_database(config.path)
+    create_recipe(config, {"配方編號": "EXISTING", "顏色": "Blue"})
+    production = workspace_app(config).run(timeout=30)
+    recipe = recipe_creation_app(config)
+    recipe.session_state["production_data_loaded"] = production.session_state["production_data_loaded"]
+
+    recipe.text_input(key="form_recipe_配方編號").set_value("NEW-RECIPE")
+    recipe.text_input(key="form_recipe_淨重").set_value("25")
+    next(button for button in recipe.button if button.label == "💾 儲存配方").click().run()
+    assert not recipe.exception
+    assert any(row["配方編號"] == "NEW-RECIPE" for row in list_recipes(config))
+
+    # Both pages share these session keys when the user switches workspaces.
+    for key in ("df_recipe", "production_data_loaded"):
+        production.session_state[key] = recipe.session_state[key]
+    production.text_input(key="search_text_tab1").set_value("NEW-RECIPE").run()
+    production.text_input(key="form_weight1_tab1").set_value("1")
+    production.text_input(key="form_count1_tab1").set_value("2")
+    next(button for button in production.button if button.label == "💾 僅儲存生產單").click().run()
+    assert not production.exception and not production.error, [error.value for error in production.error]
+    assert [row["配方編號"] for row in list_production_orders(config)] == ["NEW-RECIPE"]
 
 
 def test_clear_recipe_form_discards_pending_values_and_keeps_saved_recipes(tmp_path):
