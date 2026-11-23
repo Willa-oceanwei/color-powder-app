@@ -21,7 +21,7 @@ body:has(.st-key-production_a5_create_actions) [data-testid="stPopoverBody"]:has
 .stApp .st-key-production_a5_create_actions [data-testid="stHorizontalBlock"] {flex-wrap:wrap!important;gap:8px!important;}
 .stApp .st-key-production_a5_create_actions [data-testid="stHorizontalBlock"]>:is([data-testid="stColumn"],[data-testid="column"]) {min-width:0!important;width:auto!important;}
 .stApp .st-key-production_a5_create_actions [data-testid="stHorizontalBlock"]>:is([data-testid="stColumn"],[data-testid="column"]):nth-child(-n+2) {flex:1 1 calc(50% - 4px)!important;}
-.stApp .st-key-production_a5_create_actions [data-testid="stHorizontalBlock"]>:is([data-testid="stColumn"],[data-testid="column"]):nth-child(3) {display:none!important;}
+.stApp .st-key-production_a5_create_actions [data-testid="stHorizontalBlock"]>:is([data-testid="stColumn"],[data-testid="column"]):nth-child(3) {flex:1 1 auto!important;}
 .stApp .st-key-production_a5_create_actions [data-testid="stHorizontalBlock"]>:is([data-testid="stColumn"],[data-testid="column"]):nth-child(4) {flex:0 0 auto!important;margin-left:auto;}
 .stApp .st-key-production_a5_create_actions :is([data-testid="stDownloadButton"],[data-testid="stPopover"]) button p {font-size:.875rem!important;}
 }
