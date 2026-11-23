@@ -336,7 +336,7 @@ render_shipment_management(DatabaseConfig(backend="sqlite",path=Path({str(config
     prefix = f"shipment_{app.session_state['shipment_epoch']}_"
     app.selectbox(key=prefix + "customer_picker").set_value("C01").run()
     warm = len(calls)
-    app.text_input(key=prefix + "address").set_value("送貨地址").run()
+    next(w for w in app.text_input if w.label == "送貨地址").set_value("送貨地址").run()
     app.text_area(key=prefix + "notes").set_value("備註").run()
     app.selectbox(key=prefix + "tax_rate").set_value(0).run()
     app.session_state[prefix + "items"] = {"edited_rows": {}, "deleted_rows": [], "added_rows": [

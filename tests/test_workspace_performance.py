@@ -203,7 +203,7 @@ render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(confi
     assert draft["address"] == "Delivery address"
     assert draft["notes"] == "Keep editing"
     assert app.text_input(key="shipment_1_recipient_id").value == "C01"
-    assert app.text_input(key="shipment_1_address").value == "Delivery address"
+    assert next(w for w in app.text_input if w.label == "送貨地址").value == "Delivery address"
     assert app.dataframe
     assert all(reads.count(name) == 1 for name in (
         "get_customer", "list_customers", "shipment_choices", "shipment_price_history"))

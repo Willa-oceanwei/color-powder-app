@@ -320,7 +320,7 @@ render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(confi
     app.selectbox(key=prefix + "number_mode").set_value("依日期生成").run()
     app.selectbox(key=prefix + "customer_picker").set_value("C01").run()
     app.radio(key=prefix + "detail_section").set_value("相關資料").run()
-    app.text_input(key=prefix + "address").set_value("本次指定地址")
+    next(w for w in app.text_input if w.label == "送貨地址").set_value("本次指定地址")
     app.text_input(key=prefix + "phone").set_value("").run()
     app.session_state[prefix + "items"] = {"edited_rows": {}, "deleted_rows": [], "added_rows": [
         {"貨品編號": "P1", "品名": "藍", "數量": 1.0, "單位": "包", "單價": 100.0}]}

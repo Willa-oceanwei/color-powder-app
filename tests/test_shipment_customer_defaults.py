@@ -35,11 +35,11 @@ render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(confi
     expected = {"recipient_id": "C01", "recipient_name": "甲公司", "address": "第一路 1 號",
                 "phone": "02-12345678", "fax": "02-87654321", "contact": "王先生", "tax_id": "12345678"}
     for field, value in expected.items():
-        assert app.text_input(key=prefix + field).value == value
-    app.text_input(key=prefix + "address").set_value("臨時送貨地址").run()
+        assert (next(w for w in app.text_input if w.label == "送貨地址") if field == "address" else app.text_input(key=prefix + field)).value == value
+    next(w for w in app.text_input if w.label == "送貨地址").set_value("臨時送貨地址").run()
     app.run()
-    assert app.text_input(key=prefix + "address").value == "臨時送貨地址"
+    assert next(w for w in app.text_input if w.label == "送貨地址").value == "臨時送貨地址"
     app.selectbox(key=prefix + "customer_picker").set_value("C02").run()
     assert not app.exception
-    assert app.text_input(key=prefix + "address").value == "第二路 2 號"
+    assert next(w for w in app.text_input if w.label == "送貨地址").value == "第二路 2 號"
     assert app.text_input(key=prefix + "phone").value == ""
