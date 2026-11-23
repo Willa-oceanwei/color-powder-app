@@ -2333,15 +2333,17 @@ def colorant_shipment_display_multiplier(order_row):
     return 1 if mode == "實際公斤（1 = 1kg）" else 100
 
 def calculate_shipment_display(order_row):
-    """Format historical packages using the order's recorded recipe or unit."""
+    """Format packages using recorded details and fill gaps on older orders."""
     from utils.production_order_repository import production_order_recipe_rows
 
     if not str(order_row.get("配方編號", "") or "").strip():
         return ""
 
     recipe, _ = production_order_recipe_rows(order_row)
-    unit = str(recipe.get("計量單位") or order_row.get("計量單位") or "").strip()
-    category = str(recipe.get("色粉類別") or order_row.get("色粉類別") or "").strip()
+    unit = str(recipe.get("計量單位") or order_row.get("計量單位")
+               or order_row.get("_package_recipe_unit") or "").strip().lower()
+    category = str(recipe.get("色粉類別") or order_row.get("色粉類別")
+                   or order_row.get("_package_recipe_category") or "").strip()
 
     if unit == "kg" and category == "色母":
         multiplier = colorant_shipment_display_multiplier(order_row)
@@ -5813,7 +5815,7 @@ def render_production_order_workspace():
 
     production_data_started_at = time.perf_counter()
     production_data_cached = (st.session_state.get("production_data_loaded", False)
-                              and st.session_state.get("production_recipe_ids_version") == 2
+                              and st.session_state.get("production_recipe_ids_version") == 3
                               and (st.session_state.df_order.empty
                                    or "_recipe_snapshot_json" in st.session_state.df_order.columns))
     if not production_data_cached:
@@ -5853,7 +5855,7 @@ def render_production_order_workspace():
         st.session_state.df_order = df_order
         st.session_state.df_recipe = df_recipe
         st.session_state.production_data_loaded = True
-        st.session_state.production_recipe_ids_version = 2
+        st.session_state.production_recipe_ids_version = 3
     
     df_recipe = st.session_state.df_recipe
     df_order = st.session_state.df_order.copy()
@@ -7156,7 +7158,8 @@ def render_production_order_workspace():
                         st.session_state.setdefault(f"show_big_label_{order['生產單號']}", False)
                         st.session_state.last_saved_order_snapshot = current_snapshot
                         df_order = pd.DataFrame(list_production_orders(DATABASE_CONFIG, include_cancelled=True, include_recipe_snapshot=True)).fillna("").astype(str)
-                        df_order.drop(columns="_recipe_snapshot_json", errors="ignore").to_csv(
+                        df_order.drop(columns=["_recipe_snapshot_json", "_package_recipe_unit", "_package_recipe_category"],
+                                      errors="ignore").to_csv(
                             "data/order.csv", index=False, encoding="utf-8-sig"
                         )
                         st.session_state.df_order = df_order
