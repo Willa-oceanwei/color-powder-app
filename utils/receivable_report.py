@@ -20,7 +20,21 @@ def statement_customer_sort_key(code):
     return tuple(parts), code
 
 
-def build_statements(config, start, end, customer_start="", customer_end="", hide_empty=True, *, hide_paid=False):
+def _unsettled_documents(documents):
+    returns = {}
+    for document in documents:
+        if original := document.get("original_number"):
+            returns[original] = returns.get(original, Decimal(0)) + Decimal(document["total"])
+    unpaid = {
+        document["number"] for document in documents
+        if "original_number" not in document
+        and Decimal(document["total"]) + returns.get(document["number"], 0) > Decimal(document["received"])
+    }
+    return [document for document in documents if document.get("original_number", document["number"]) in unpaid]
+
+
+def build_statements(config, start, end, customer_start="", customer_end="", hide_empty=True, *,
+                     hide_paid=False, only_unsettled=False):
     start, end = _valid_date(start, "起始帳款日期"), _valid_date(end, "結束帳款日期")
     if start > end:
         raise ShipmentError("起始帳款日期不可晚於結束日期")
@@ -78,7 +92,7 @@ def build_statements(config, start, end, customer_start="", customer_end="", hid
             continue
         header = json.loads(row["payload_json"]) if row["id"] not in documents else None
         is_return = row["original_number"] is not None
-        if hide_paid and not is_return and header and header.get("paid_in_full") in (True, 1):
+        if (hide_paid or only_unsettled) and not is_return and header and header.get("paid_in_full") in (True, 1):
             excluded.add(row["id"])
             paid_customers.add(row["customer_id"])
             continue
@@ -105,7 +119,9 @@ def build_statements(config, start, end, customer_start="", customer_end="", hid
     result = []
     for code in sorted(grouped, key=statement_customer_sort_key):
         statement = grouped[code]
-        if not statement["documents"] and (hide_empty or code in paid_customers):
+        if only_unsettled:
+            statement["documents"] = _unsettled_documents(statement["documents"])
+        if not statement["documents"] and (hide_empty or only_unsettled or code in paid_customers):
             continue
         for name in ("net", "tax", "total", "received"):
             statement[name] = str(sum((Decimal(d[name]) for d in statement["documents"]), Decimal(0)))
