@@ -8,6 +8,7 @@ from utils.customer_repository import CustomerInput, create_customer
 from utils.database import DatabaseConfig, connect_from_config, initialize_database
 from utils.product_transaction_report import product_transactions, product_price_changes
 from utils.product_transaction_ui import taiwan_timestamp
+from utils.scheduled_quote_repository import save_scheduled_quote
 from utils.shipment_repository import ShipmentError, blank_shipment, save_shipment, void_shipment
 
 
@@ -200,6 +201,37 @@ def test_price_tab_uses_earlier_baseline_and_shares_customer_filter(config, monk
     app.date_input(key='product_history_start').set_value(None)
     search(app, 'P1')
     assert sum(app.tabs[1].dataframe[0].value['異動類型'] == '初始售價') == 2
+
+
+def test_price_notice_prefers_dated_quotes_and_falls_back_to_first_sale(config, monkeypatch):
+    from utils import product_transaction_report as report
+
+    monkeypatch.setattr(report, "quote_today", lambda: date(2026, 11, 24))
+    for number, customer, day, price in (
+        ("01", "C01", "2026-03-20", "800"), ("02", "C01", "2026-10-01", "700"),
+        ("03", "C02", "2026-05-01", "780"), ("04", "C02", "2026-10-02", "900"),
+    ):
+        shipment(config, number, customer=customer, day=day, code="32336B", unit="kg", price=price)
+    for code, day, price in (
+        ("32336B", "2026-04-01", "880"), ("32336B", "2026-11-24", "950"),
+        ("32336B", "2026-12-01", "999"), ("32336A", "2026-11-24", "777"),
+    ):
+        save_scheduled_quote(config, dict(customer_id="C01", product_code=code, effective_date=day,
+                                          price=price, unit="KG", tax_mode="外加"))
+
+    app = history_app(config)
+    app.date_input(key="product_history_start").set_value(date(2026, 10, 1))
+    search(app, "32336B")
+    assert not app.exception
+    assert any("115/11/24 價格調整" in notice.value and "從 880 元/kg 調為 950 元/kg" in notice.value
+               for notice in app.info)
+    assert any("從 800 元/kg 調為 880 元/kg" in row.value for row in app.markdown)
+    assert not any("999 元/kg" in row.value or "777 元/kg" in row.value for row in app.markdown)
+    assert set(app.tabs[0].dataframe[0].value["單價"]) == {"700", "900"}
+
+    next(toggle for toggle in app.toggle if toggle.label.startswith("C02")).set_value(True).run()
+    assert any("115/05/01 最早成交價" in notice.value and "780 元/kg" in notice.value for notice in app.info)
+    assert not any("價格調整" in notice.value for notice in app.info)
 
 
 def test_related_suffix_codes_are_explicit_safe_and_exclude_void(config):
