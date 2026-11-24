@@ -1,13 +1,14 @@
 """Compact product history filters and optional customer checkboxes."""
 
 from collections import Counter
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from html import escape
 
 import pandas as pd
 import streamlit as st
 
-from .product_transaction_report import product_transactions, product_price_changes
+from .product_transaction_report import product_transactions, product_price_changes, product_price_notices
+from .shipment_print import display_price
 from .shipment_repository import ShipmentError
 from .shipment_ui import COMPACT_STYLE
 
@@ -31,6 +32,32 @@ def _query_help():
         st.write("右側客戶可複選，未勾選時顯示全部客戶。")
         st.write("售價異動依同一編號、客戶、單位、課稅方式比較成交單價；保留初始售價，相同價格不重複列出。")
         st.write("日期範圍只篩選顯示結果，比價仍會參照較早的交易；這不是舊單修改前後的稽核紀錄。")
+        st.write("價格提示採「預告報價」的生效日。沒有已生效報價時，顯示該客戶最早有單價的出貨紀錄。")
+
+
+def _price_notice_text(notice):
+    day = date.fromisoformat(notice["date"])
+    unit = "kg" if notice["unit"] == "KG" else notice["unit"]
+    suffix = f"元/{unit}" if unit else "元"
+    price = f"{display_price(notice['price'])} {suffix}"
+    if notice["previous_price"] is not None:
+        price = f"從 {display_price(notice['previous_price'])} {suffix} 調為 {price}"
+    return (f"{day.year - 1911}/{day:%m/%d} {notice['kind']} · "
+            f"{notice['code']} · {notice['customer_id']} {notice['customer_name']} · {price}（{notice['tax_mode']}）")
+
+
+def _render_price_notices(notices, chosen_code, customers=()):
+    if notices is None:
+        st.warning("價格提示暫時無法讀取，可繼續查閱交易明細。")
+        return
+    notices = [notice for notice in notices if (chosen_code == "__all__" or notice["code"] == chosen_code)
+               and (not customers or notice["customer_id"] in customers)]
+    if notices:
+        st.info(_price_notice_text(notices[0]))
+    if len(notices) > 1:
+        with st.expander(f"其他價格紀錄（{len(notices) - 1} 筆）"):
+            for notice in notices[1:]:
+                st.write(_price_notice_text(notice))
 
 
 def render_product_transactions(config):
@@ -70,11 +97,15 @@ def render_product_transactions(config):
             st.session_state.pop("product_history_result", None)
             st.error("交易明細讀取失敗，請稍後重新查詢")
         else:
+            try:
+                notices = product_price_notices(config, code, all_rows)
+            except Exception:
+                notices = None
             epoch = st.session_state.get("product_history_epoch", 0) + 1
             st.session_state.product_history_epoch = epoch
             st.session_state.product_history_result = {
                 "config": repr(config), "code": code.upper(), "start": start, "end": end,
-                "rows": rows, "all_rows": all_rows, "price_changes": prices, "epoch": epoch}
+                "rows": rows, "all_rows": all_rows, "price_changes": prices, "price_notices": notices, "epoch": epoch}
     result = st.session_state.get("product_history_result")
     if not result or result["config"] != repr(config):
         _, help_col = st.columns([5, 1])
@@ -86,22 +117,29 @@ def render_product_transactions(config):
     latest_by_code = {}
     for row in result.get("all_rows", family_rows):
         latest_by_code.setdefault(str(row["code"]).strip().upper(), row)
-    chosen_code = result["code"] if result["code"] in latest_by_code else next(iter(latest_by_code), result["code"])
-    if len(latest_by_code) > 1:
+    price_notices = result.get("price_notices", [])
+    matching_codes = list(dict.fromkeys([*latest_by_code, *(notice["code"] for notice in price_notices or [])]))
+    chosen_code = result["code"] if result["code"] in matching_codes or not matching_codes else matching_codes[0]
+    if len(matching_codes) > 1:
         notice_col, choice_col = st.columns([3, 2], vertical_alignment="center")
-        latest = next(iter(latest_by_code.values()))
-        notice_col.info(f"找到 {len(latest_by_code)} 個相近編號；最近出貨：{latest['code']} · {latest['shipment_date']}（全部期間）")
-        options = ["__all__"] + list(latest_by_code)
+        latest = next(iter(latest_by_code.values()), None)
+        caption = f"找到 {len(matching_codes)} 個相近編號"
+        if latest:
+            caption += f"；最近出貨：{latest['code']} · {latest['shipment_date']}（全部期間）"
+        notice_col.info(caption)
+        options = ["__all__"] + matching_codes
         default = options.index(result["code"]) if result["code"] in options else 0
         chosen_code = choice_col.selectbox(
             "選擇查詢編號", options, index=default, key=f"product_history_variant_{result['epoch']}",
             format_func=lambda value: "全部相近編號" if value == "__all__" else
-                f"{value} · 最近 {latest_by_code[value]['shipment_date']}")
+                f"{value} · 最近 {latest_by_code[value]['shipment_date']}" if value in latest_by_code else f"{value} · 有價格紀錄")
         rows = [row for row in family_rows if chosen_code == "__all__"
                 or str(row["code"]).strip().upper() == chosen_code]
-    elif latest_by_code and chosen_code != result["code"]:
-        st.info(f"查無 {result['code']} 的交易；相近編號 {chosen_code} 最近出貨：{latest_by_code[chosen_code]['shipment_date']}")
-    scope_label = f"{result['code']} 等 {len(latest_by_code)} 個編號" if chosen_code == "__all__" else chosen_code
+    elif chosen_code != result["code"]:
+        latest = latest_by_code.get(chosen_code)
+        hint = f"最近出貨：{latest['shipment_date']}" if latest else "有價格紀錄"
+        st.info(f"查無 {result['code']} 的交易；相近編號 {chosen_code} {hint}")
+    scope_label = f"{result['code']} 等 {len(matching_codes)} 個編號" if chosen_code == "__all__" else chosen_code
     if result["start"] and result["end"]:
         period = f"{result['start']} ～ {result['end']}"
     elif result["start"]:
@@ -117,6 +155,7 @@ def render_product_transactions(config):
     with help_col:
         _query_help()
     if not family_rows:
+        _render_price_notices(price_notices, chosen_code)
         st.info("沒有符合條件的出貨記錄")
         return
     customers = {}
@@ -138,6 +177,7 @@ def render_product_transactions(config):
         table_col = st.container()
     visible = [row for row in rows if not selected or row["customer_id"] in selected]
     with table_col:
+        _render_price_notices(price_notices, chosen_code, selected)
         if selected and len(latest_by_code) > 1:
             latest_customer = next((row for row in result.get("all_rows", family_rows) if row["customer_id"] in selected), None)
             if latest_customer:
