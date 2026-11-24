@@ -17,6 +17,10 @@ def test_print_customer_selects_all_customer_pages_and_resets(stock):
     assert 'id="print-customer"' in html
     assert '.preview-stage>.print-omit{display:none!important}' in html
     assert '.preview-stage>.print-customer-offset{position:relative;left:2mm}' in html
+    print_alignment = ('@media print{.preview-stage>.sheet{padding-left:11mm;padding-right:5mm}'
+                       '.stock-page>.sheet{left:3mm}}')
+    assert print_alignment in html
+    assert print_alignment not in render_statement_print([], paper_stock=stock, title="客戶交易明細")
     script = re.search(r'<script id="statement-customer-print">(.*?)</script>', html, re.S)[1]
     # Model the real top-level sheet elements, including stock wrappers.
     harness = '''
