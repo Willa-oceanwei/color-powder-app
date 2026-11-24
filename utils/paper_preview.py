@@ -18,6 +18,8 @@ border:1px solid #527086;border-radius:4px;font:inherit;min-height:38px;padding:
 .toolbar button:hover,.print-toolbar button:hover{background:#a9471c;border-color:#e66e32;}
 .toolbar select:focus-visible,.toolbar button:focus-visible,.print-toolbar button:focus-visible{
 outline:2px solid #e66e32;outline-offset:2px;}
+.toolbar button.print-action{background:#a9471c;border-color:#ffab82;color:#fff;font-weight:700;cursor:pointer;}
+.toolbar button.print-action:hover{background:#963b17;}
 .stage,.preview-stage{background:#101820;scrollbar-color:#527086 #101820;}
 .paper,.sheet{background:#fff;color:#000;color-scheme:light;outline:1px solid #527086;
 box-shadow:0 2px 8px #0005;}

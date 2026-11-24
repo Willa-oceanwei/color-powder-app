@@ -24,7 +24,7 @@ body{margin:0}
 </head>""", 1)
     document = document.replace("<body>", """<body>
 <div class="toolbar">
-<button type="button" onclick="window.print()">列印標籤</button>
+<button type="button" class="print-action" onclick="window.print()">列印標籤</button>
 <label for="label-zoom">預覽縮放</label>
 <select id="label-zoom" onchange="fitLabelPreview()">
 <option value="width">符合寬度</option><option value="1">100%</option>
