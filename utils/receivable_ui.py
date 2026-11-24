@@ -134,7 +134,7 @@ def render_report(config, *, title="應收帳款明細表"):
             cols = st.columns(2)
             lower = cols[0].selectbox("起始客戶編號", codes, format_func=lambda c: c + " · " + names[c] if c else "不限")
             upper = cols[1].selectbox("結束客戶編號", codes, format_func=lambda c: c + " · " + names[c] if c else "不限")
-            whole_month = st.checkbox("本月整月明細", key="receivable_whole_month")
+            whole_month = st.toggle("本月整月明細", key="receivable_whole_month")
             start_key, end_key = "receivable_report_start", "receivable_report_end"
             if whole_month:
                 for key in (start_key, end_key):

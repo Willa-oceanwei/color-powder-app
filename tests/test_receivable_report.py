@@ -123,7 +123,7 @@ render_report(DatabaseConfig(backend="sqlite", path=Path({str(config.path)!r})))
     next(widget for widget in app.selectbox if widget.label == "結束客戶編號").set_value("LA10")
     app.date_input(key="receivable_report_start").set_value(date(2026, 11, 10))
     app.date_input(key="receivable_report_end").set_value(date(2026, 11, 15)).run()
-    app.checkbox(key="receivable_whole_month").check().run()
+    app.toggle(key="receivable_whole_month").set_value(True).run()
     assert "receivable_pages" not in app.session_state
     app.button(key="receivable_preview").click().run()
     assert not app.exception and not app.error
@@ -133,7 +133,7 @@ render_report(DatabaseConfig(backend="sqlite", path=Path({str(config.path)!r})))
     assert [document["date"] for row in statements for document in row["documents"]] == [
         "2026-11-01", "2026-11-28", "2026-11-30",
     ]
-    app.checkbox(key="receivable_whole_month").uncheck().run()
+    app.toggle(key="receivable_whole_month").set_value(False).run()
     assert app.date_input(key="receivable_report_start").value == date(2026, 11, 10)
     assert app.date_input(key="receivable_report_end").value == date(2026, 11, 15)
 
