@@ -1,10 +1,11 @@
 """Compact filter form and paginated customer statement preview."""
 
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from uuid import uuid4
 from hashlib import sha256
 from calendar import monthrange
+from zoneinfo import ZoneInfo
 import json
 import logging
 
@@ -14,7 +15,10 @@ import streamlit.components.v1 as components
 
 from .customer_display import CustomerDisplay
 from .customer_repository import list_customers, customer_display_name
-from .receivable_report import build_statements, render_statement_print, statement_pages, monthly_receipt_summary
+from .receivable_report import (
+    build_statements, render_statement_print, statement_pages, monthly_receipt_summary,
+    statement_customer_sort_key,
+)
 from .paper_preview import theme_preview, dismiss_export_on_preview_click
 from .sales_return_repository import list_sales_returns
 from .shipment_repository import ShipmentError, get_shipment, list_shipments
@@ -106,8 +110,8 @@ def render_monthly_receipt_summary(config):
 def render_report(config, *, title="應收帳款明細表"):
     customers = list_customers(config, include_inactive=True)
     names = {c["customer_id"]: customer_display_name(c) for c in customers}
-    codes = [""] + list(names)
-    today = date.today()
+    codes = [""] + sorted(names, key=statement_customer_sort_key)
+    today = datetime.now(ZoneInfo("Asia/Taipei")).date()
     filter_col, export_col, scope_col = st.columns([1.2, 1.3, 5.5], vertical_alignment="center")
     with filter_col.popover("查詢條件", use_container_width=True):
         components.html('''<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8">
@@ -127,22 +131,42 @@ def render_report(config, *, title="應收帳款明細表"):
         # Keep query controls independent of Streamlit's nested form lifecycle.
         # Only the preview button below replaces the saved report.
         with st.container():
-            cols = st.columns(2)
-            lower = cols[0].selectbox("起始客戶編號", codes, format_func=lambda c: c + " · " + names[c] if c else "不限")
-            upper = cols[1].selectbox("結束客戶編號", codes, format_func=lambda c: c + " · " + names[c] if c else "不限")
-            dates = st.columns(2)
-            start = dates[0].date_input("起始帳款日期", value=today.replace(day=1))
-            end = dates[1].date_input("結束帳款日期", value=today)
+            only_unsettled = title == "應收帳款明細表" and st.toggle(
+                "本月全部未結清帳款", key="receivable_whole_month",
+            )
+            lower_key, upper_key = "receivable_customer_start", "receivable_customer_end"
+            start_key, end_key = "receivable_report_start", "receivable_report_end"
+            if only_unsettled:
+                for key in (lower_key, upper_key, start_key, end_key, "receivable_hide_empty", "receivable_hide_paid"):
+                    if key in st.session_state:
+                        st.session_state[key] = st.session_state[key]
+                lower = upper = ""
+                start, end = month_receipt_period(today.year, today.month, 31)
+                st.caption(f"全部客戶 · {start:%Y/%m/%d} ～ {end:%Y/%m/%d} · 僅未結清")
+            else:
+                cols = st.columns(2)
+                def customer_label(code):
+                    return f"{code} · {names[code]}" if code else "不限"
+                lower = cols[0].selectbox("起始客戶編號", codes, format_func=customer_label, key=lower_key)
+                upper = cols[1].selectbox("結束客戶編號", codes, format_func=customer_label, key=upper_key)
+                dates = st.columns(2)
+                start = dates[0].date_input("起始帳款日期", value=today.replace(day=1), key=start_key)
+                end = dates[1].date_input("結束帳款日期", value=today, key=end_key)
             paper_col, hide_col, paid_col = st.columns([1, 1.5, 1.5], vertical_alignment="center")
-            paper = paper_col.selectbox("紙張尺寸", ("A4", "三聯紙 240 × 140 mm", "依內容自動選擇", "A5"))
-            hide_empty = hide_col.toggle("本期未交易者不顯示", value=True)
-            hide_paid = paid_col.toggle("已付清者不顯示", value=True, key="receivable_hide_paid",
-                                       help="排除出貨單已勾選「已付清」的單據；同一客戶仍有其他單據時會繼續顯示。") if title == "應收帳款明細表" else False
+            paper = paper_col.selectbox("紙張尺寸", ("A4", "三聯紙 240 × 140 mm", "依內容自動選擇", "A5"),
+                                        key="receivable_report_paper")
+            hide_empty = only_unsettled or hide_col.toggle("本期未交易者不顯示", value=True, key="receivable_hide_empty")
+            hide_paid = not only_unsettled and title == "應收帳款明細表" and paid_col.toggle(
+                "已付清者不顯示", value=True, key="receivable_hide_paid",
+                help="排除出貨單已勾選「已付清」的單據；同一客戶仍有其他單據時會繼續顯示。",
+            )
             submitted = st.button("預覽", key="receivable_preview", type="primary", use_container_width=True)
     if submitted:
         st.session_state.pop("receivable_exports", None)
         try:
-            pages = statement_pages(build_statements(config, start, end, lower, upper, hide_empty, hide_paid=hide_paid),
+            statements = build_statements(config, start, end, lower, upper, hide_empty,
+                                          hide_paid=hide_paid, only_unsettled=only_unsettled)
+            pages = statement_pages(statements,
                                     paper_size="A5" if paper.startswith("三聯紙") else "auto" if paper == "依內容自動選擇" else paper,
                                     name_width=14 if title == "應收帳款明細表" else 10)
         except ShipmentError as error:
@@ -150,18 +174,22 @@ def render_report(config, *, title="應收帳款明細表"):
             st.session_state.pop("receivable_pages", None)
             st.session_state.pop("receivable_report_scope", None)
         else:
-            st.session_state.receivable_report_scope = f"{lower or '不限'} ～ {upper or '不限'} · {start:%Y/%m/%d} ～ {end:%Y/%m/%d} · {paper}" + (" · 排除已付清" if hide_paid else "")
+            customer_scope = "全部客戶" if only_unsettled else f"{lower or '不限'} ～ {upper or '不限'}"
+            status = " · 僅未結清" if only_unsettled else " · 排除已付清" if hide_paid else ""
+            st.session_state.receivable_report_scope = f"{customer_scope} · {start:%Y/%m/%d} ～ {end:%Y/%m/%d} · {paper}{status}"
+            st.session_state.receivable_report_unsettled = only_unsettled
             st.session_state.receivable_pages = pages
             st.session_state.receivable_page = 0
             st.session_state.receivable_paper_stock = "a4_driver" if paper == "A4" else "triplicate" if paper.startswith("三聯紙") else "standard"
     scope_col.caption(st.session_state.get("receivable_report_scope", "請開啟查詢條件，選好範圍後按預覽。"))
     pages = st.session_state.get("receivable_pages")
+    unsettled_report = st.session_state.get("receivable_report_unsettled", False)
     if not pages:
         export_col.button("列印／匯出", disabled=True, use_container_width=True)
     if pages is None:
         return
     if not pages:
-        st.info("此區間沒有符合條件的出貨資料")
+        st.info("本月沒有未結清的應收帳款" if unsettled_report else "此區間沒有符合條件的出貨資料")
         return
     paper_stock = st.session_state.get("receivable_paper_stock", "standard")
     st.markdown('''<style>
@@ -175,7 +203,13 @@ def render_report(config, *, title="應收帳款明細表"):
         company_name = COMPANY["name"]
         if title == "應收帳款明細表" and heading_col.toggle("抬頭改為加舜企業有限公司", key="receivable_alternate_company", value=False):
             company_name = "加舜企業有限公司"
-        show_receipts = receipt_col.toggle("顯示收款資訊", key="receivable_show_receipts", value=False)
+        if unsettled_report:
+            if "receivable_show_receipts" in st.session_state:
+                st.session_state.receivable_show_receipts = st.session_state.receivable_show_receipts
+            receipt_col.caption("顯示已收款與未收餘額")
+            show_receipts = True
+        else:
+            show_receipts = receipt_col.toggle("顯示收款資訊", key="receivable_show_receipts", value=False)
         feed_col, margin_col = st.columns([2, 1])
         feed_rotation = feed_col.selectbox("紙張進紙", (0, 90), key="receivable_feed_rotation",
                                     format_func=lambda v: "240 mm 長邊先進（橫放）" if v == 0 or paper_stock == "a4_driver" else "140 mm 短邊先進（直放）", disabled=paper_stock != "triplicate")

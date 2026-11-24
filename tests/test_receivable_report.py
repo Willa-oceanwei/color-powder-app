@@ -1,5 +1,5 @@
 from copy import deepcopy
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from uuid import uuid4
 
@@ -10,6 +10,7 @@ from utils.customer_repository import CustomerInput, create_customer, update_cus
 from utils.database import SCHEMA_VERSION, DatabaseConfig, connect, initialize_database, database_health_check
 from utils.receipt_repository import list_receipts, save_receipt, void_receipt
 from utils.receivable_report import build_statements, render_statement_print, statement_pages
+from utils.sales_return_repository import save_sales_return
 from utils.shipment_repository import ShipmentError, blank_shipment, get_shipment, list_shipments, save_shipment, void_shipment
 
 
@@ -93,6 +94,66 @@ render_report(DatabaseConfig(backend="sqlite", path=Path({str(config.path)!r})))
     assert not app.exception and len(calls) == 2
     assert len(app.session_state["receivable_pages"]) == 1
     assert "A01" in app.session_state["receivable_report_scope"]
+
+
+def test_report_orders_customer_codes_and_can_show_all_unsettled_current_month(config, monkeypatch):
+    from utils import receivable_ui as ui
+
+    class FixedDatetime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return cls(2026, 11, 24, tzinfo=tz)
+
+    monkeypatch.setattr(ui, "datetime", FixedDatetime)
+    documents = {}
+    for code, day in (("LA10", "2026-11-30"), ("LA2", "2026-11-01"), ("LA9", "2026-11-20"),
+                      ("LA11", "2026-11-28")):
+        create_customer(config, CustomerInput(code, "客戶 " + code))
+        documents[code] = shipment(config, code, shipment_date=day)
+    prior = shipment(config, "LA9", shipment_date="2026-10-31")
+    shipment(config, "LA9", shipment_date="2026-12-01")
+    receipt(config, shipment(config, "A01", shipment_date="2026-11-02"), 210, "2026-11-03")
+    marked = shipment(config, "A02", shipment_date="2026-11-04")
+    save_shipment(config, dict(marked, paid_in_full=True))
+    fully_returned = shipment(config, "A03", shipment_date="2026-11-05")
+    receipt(config, documents["LA9"], 50, "2026-11-22")
+    for document, quantities in ((documents["LA9"], {1: "1"}), (prior, {1: "1"}), (fully_returned, {1: "1", 2: "1"})):
+        latest = get_shipment(config, document["id"])
+        save_sales_return(config, return_id=str(uuid4()), shipment_id=latest["id"], shipment_version=latest["version"],
+                          return_date="2026-11-23", reason="Test return", quantities=quantities)
+    assert [row["customer_id"] for row in build_statements(config, "2026-11-01", "2026-11-30", "LA2", "LA10")] == [
+        "LA2", "LA9", "LA10",
+    ]
+    app = AppTest.from_string(f'''from pathlib import Path
+from utils.database import DatabaseConfig
+from utils.receivable_ui import render_report
+render_report(DatabaseConfig(backend="sqlite", path=Path({str(config.path)!r})))
+''').run()
+
+    for name in ("起始客戶編號", "結束客戶編號"):
+        picker = next(widget for widget in app.selectbox if widget.label == name)
+        assert [option.split(" · ")[0] for option in picker.options][-4:] == ["LA2", "LA9", "LA10", "LA11"]
+    next(widget for widget in app.selectbox if widget.label == "起始客戶編號").set_value("LA2")
+    next(widget for widget in app.selectbox if widget.label == "結束客戶編號").set_value("LA10")
+    app.date_input(key="receivable_report_start").set_value(date(2026, 11, 10))
+    app.date_input(key="receivable_report_end").set_value(date(2026, 11, 15)).run()
+    app.toggle(key="receivable_whole_month").set_value(True).run()
+    assert "receivable_pages" not in app.session_state
+    app.button(key="receivable_preview").click().run()
+    assert not app.exception and not app.error
+    assert "全部客戶 · 2026/11/01 ～ 2026/11/30" in app.session_state["receivable_report_scope"]
+    statements = [page["statement"] for page in app.session_state["receivable_pages"]]
+    assert [row["customer_id"] for row in statements] == ["LA2", "LA9", "LA10", "LA11"]
+    assert [row["balance"] for row in statements] == ["210", "55", "210", "210"]
+    assert [document["date"] for row in statements for document in row["documents"]] == [
+        "2026-11-01", "2026-11-20", "2026-11-23", "2026-11-30", "2026-11-28",
+    ]
+    assert any("帳面未收餘額" in item.proto.srcdoc for item in app.get("iframe"))
+    app.toggle(key="receivable_whole_month").set_value(False).run()
+    assert app.selectbox(key="receivable_customer_start").value == "LA2"
+    assert app.selectbox(key="receivable_customer_end").value == "LA10"
+    assert app.date_input(key="receivable_report_start").value == date(2026, 11, 10)
+    assert app.date_input(key="receivable_report_end").value == date(2026, 11, 15)
 
 
 def test_filter_shipment_date_customer_range_void_and_mixed_units(config):

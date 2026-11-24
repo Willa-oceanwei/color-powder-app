@@ -1,6 +1,7 @@
 """Read-only customer shipment statements; no inferred payment balances."""
 
 import json
+import re
 from decimal import Decimal
 from html import escape
 
@@ -12,21 +13,56 @@ from .shipment_codes import printed_code
 from .print_stock import stock_geometry, stock_sheet, stock_style
 
 
-def build_statements(config, start, end, customer_start="", customer_end="", hide_empty=True, *, hide_paid=False):
+def statement_customer_sort_key(code):
+    parts = re.split(r"([0-9]+)", code.casefold())
+    numbers = [part.lstrip("0") for part in parts[1::2]]
+    parts[1::2] = [(len(number), number) for number in numbers]
+    return tuple(parts), code
+
+
+def _unsettled_documents(documents):
+    returns = {}
+    for document in documents:
+        if original := document.get("original_number"):
+            returns[original] = returns.get(original, Decimal(0)) + Decimal(document["total"])
+    unpaid = {
+        document["number"] for document in documents
+        if "original_number" not in document
+        and Decimal(document["total"]) + returns.get(document["number"], 0) > Decimal(document["received"])
+    }
+    return [document for document in documents if document.get("original_number", document["number"]) in unpaid]
+
+
+def build_statements(config, start, end, customer_start="", customer_end="", hide_empty=True, *,
+                     hide_paid=False, only_unsettled=False):
     start, end = _valid_date(start, "起始帳款日期"), _valid_date(end, "結束帳款日期")
     if start > end:
         raise ShipmentError("起始帳款日期不可晚於結束日期")
-    if customer_start and customer_end and customer_start > customer_end:
+    lower = statement_customer_sort_key(customer_start) if customer_start else None
+    upper = statement_customer_sort_key(customer_end) if customer_end else None
+    if lower and upper and lower > upper:
         raise ShipmentError("起始客戶編號不可大於結束編號")
-    clauses, args = [], []
-    for value, operator in ((customer_start, ">="), (customer_end, "<=")):
-        if value:
-            clauses.append(f"customer_id {operator} ?")
-            args.append(value)
-    where = "WHERE " + " AND ".join(clauses) if clauses else ""
+
+    def in_range(code):
+        key = statement_customer_sort_key(code)
+        return (lower is None or lower <= key) and (upper is None or key <= upper)
+
     # One SELECT snapshots headers and lines, rather than a query per shipment.
     with connect_from_config(config) as conn:
-        customers = _mappings(conn.execute(f"SELECT customer_id,name,contact,phone,fax,tax_id FROM customers {where} ORDER BY customer_id", tuple(args)))
+        customer_query = "SELECT customer_id,name,contact,phone,fax,tax_id,1 AS in_master FROM customers"
+        if lower or upper:
+            # Old shipments can reference codes absent from the customer master.
+            customer_query += """
+                UNION ALL SELECT customer_id,NULL,NULL,NULL,NULL,NULL,0 FROM (
+                    SELECT customer_id FROM shipment_orders EXCEPT SELECT customer_id FROM customers
+                )
+            """
+        customers = _mappings(conn.execute(customer_query))
+        where, args = "", ()
+        if lower or upper:
+            customers = [customer for customer in customers if in_range(customer["customer_id"])]
+            where = "WHERE customer_id IN (SELECT value FROM json_each(?))"
+            args = (json.dumps([customer["customer_id"] for customer in customers], ensure_ascii=False),)
         records = _mappings(conn.execute(
             """WITH transactions AS (
                 SELECT s.id,s.shipment_number AS number,s.shipment_date AS transaction_date,s.customer_id,s.customer_name,
@@ -46,7 +82,8 @@ def build_statements(config, start, end, customer_start="", customer_end="", hid
             + where + " ORDER BY customer_id,transaction_date,original_number IS NOT NULL,number,id,line_number",
             (end, start, end, start, end, *args)))
     grouped = {c["customer_id"]: dict(customer_id=c["customer_id"], customer_name=c["name"],
-               start=start, end=end, documents=[], **{key: c.get(key) or "" for key in ("contact", "phone", "fax", "tax_id")}) for c in customers}
+               start=start, end=end, documents=[], **{key: c.get(key) or "" for key in ("contact", "phone", "fax", "tax_id")})
+               for c in customers if c["in_master"]}
     master_ids = set(grouped)
     documents = {}
     excluded, paid_customers = set(), set()
@@ -55,7 +92,7 @@ def build_statements(config, start, end, customer_start="", customer_end="", hid
             continue
         header = json.loads(row["payload_json"]) if row["id"] not in documents else None
         is_return = row["original_number"] is not None
-        if hide_paid and not is_return and header and header.get("paid_in_full") in (True, 1):
+        if (hide_paid or only_unsettled) and not is_return and header and header.get("paid_in_full") in (True, 1):
             excluded.add(row["id"])
             paid_customers.add(row["customer_id"])
             continue
@@ -80,9 +117,11 @@ def build_statements(config, start, end, customer_start="", customer_end="", hid
                     item[field] = str(-Decimal(item[field]))
         documents[row["id"]]["items"].append(item)
     result = []
-    for code in sorted(grouped):
+    for code in sorted(grouped, key=statement_customer_sort_key):
         statement = grouped[code]
-        if not statement["documents"] and (hide_empty or code in paid_customers):
+        if only_unsettled:
+            statement["documents"] = _unsettled_documents(statement["documents"])
+        if not statement["documents"] and (hide_empty or only_unsettled or code in paid_customers):
             continue
         for name in ("net", "tax", "total", "received"):
             statement[name] = str(sum((Decimal(d[name]) for d in statement["documents"]), Decimal(0)))
