@@ -315,6 +315,9 @@ td:nth-child(10){font-size:9.5pt;white-space:nowrap;overflow-wrap:normal}
         preview_style += "".join(f"th:nth-child({index}){{width:{width}%}}"
                                  for index, width in enumerate(RECEIVABLE_WIDTHS, 1))
         preview_style += ".summary{grid-template-columns:" + " ".join(f"{width}%" for width in RECEIVABLE_WIDTHS) + "}"
+        # Keep the printable page width fixed so Chromium won't shrink its contents.
+        preview_style += ("@media print{.preview-stage>.sheet{padding-left:11mm;padding-right:5mm}"
+                          ".stock-page>.sheet{left:3mm}}")
     html = '''<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><title>應收帳款明細表</title><style>
 @page{size:A5 landscape;margin:0}@page a5{size:A5 landscape;margin:0}@page a4{size:A4 portrait;margin:0}*{box-sizing:border-box}body{margin:0;background:#e5e7eb;color:#000;font:10pt "Microsoft JhengHei",sans-serif;letter-spacing:0}
 .toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:8px;font:16px "Microsoft JhengHei",sans-serif}.toolbar button,.toolbar select{font:inherit;min-height:38px;padding:5px 10px;border-radius:4px}.toolbar select{min-width:140px}.preview-stage{overflow:auto;padding:12px}.sheet{display:none;width:210mm;height:148mm;padding:8mm;background:white;margin:0 auto;position:relative;break-after:page}.sheet.active{display:block}
