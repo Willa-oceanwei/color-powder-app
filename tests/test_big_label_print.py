@@ -57,10 +57,10 @@ def test_big_label_html_uses_physical_stock_dimensions_and_anchors():
     assert "height: 7.8cm;" in result
     assert 'style="top:0.0cm; left:0.6cm;"' in result
     assert 'class="field left" style="left:-0.1cm; top:0.5cm;"' in result
-    assert 'class="field right" style="left:1.4cm; top:0.5cm;"' in result
-    assert 'class="field right" style="left:1.4cm; top:1.5cm;"' in result
+    assert 'class="field right" style="left:1.7cm; top:0.5cm;"' in result
+    assert 'class="field right" style="left:1.7cm; top:1.5cm;"' in result
     assert 'class="field left" style="left:-0.1cm; top:2.5cm;"' in result
-    assert 'class="field right" style="left:1.4cm; top:2.5cm;"' in result
+    assert 'class="field right" style="left:1.7cm; top:2.5cm;"' in result
     assert "width: 1.0cm;" in result
     assert "range.selectNodeContents(field)" in result
     assert "await document.fonts.ready;" in result
@@ -94,10 +94,10 @@ def test_a4_carrier_keeps_text_inside_page_and_compensates_right_fields():
     assert "width: 21.0cm;" in result and "height: 29.7cm;" in result
     assert "overflow: hidden;" in result
     assert 'class="field left" style="left:1.4cm; top:0.5cm; width:4.0cm;"' in result
-    assert 'class="field right" style="left:5.9cm; top:0.5cm;"' in result
-    assert 'class="field right" style="left:5.9cm; top:1.5cm;"' in result
+    assert 'class="field right" style="left:6.2cm; top:0.5cm;"' in result
+    assert 'class="field right" style="left:6.2cm; top:1.5cm;"' in result
     assert 'class="field left" style="left:1.0cm; top:2.5cm; width:3.2cm; font-size:19pt;"' in result
-    assert 'class="field right" style="left:5.9cm; top:2.5cm;"' in result
+    assert 'class="field right" style="left:6.2cm; top:2.5cm;"' in result
     assert "width: 5.5cm;" in result
     assert 0.6 - 0.1 > 0
     assert 24 + 2.5 + 18 * 2.54 / 72 < 29.7
@@ -118,8 +118,8 @@ def test_default_big_labels_use_calibrated_a4_on_every_page():
     for page in pages:
         assert page.startswith('<div class="label-slot" style="top:0.0cm; left:0.6cm;">')
         assert 'left:1.4cm; top:0.5cm; width:4.0cm;">51066' in page
-        assert 'left:5.9cm; top:0.5cm;">115/10/15' in page
-        assert 'left:5.9cm; top:2.5cm;">25KG' in page
+        assert 'left:6.2cm; top:0.5cm;">115/10/15' in page
+        assert 'left:6.2cm; top:2.5cm;">25KG' in page
 
 
 def test_short_number_and_name_shift_together_without_moving_date_or_weight():
@@ -128,8 +128,8 @@ def test_short_number_and_name_shift_together_without_moving_date_or_weight():
                      paper_stock="a4_driver")
     assert 'left:1.4cm; top:0.5cm; width:4.0cm;">00123' in short
     assert 'left:1.0cm; top:2.5cm; width:3.2cm; font-size:19pt;"><span class="label-chinese">紅色</span>' in short
-    assert 'left:5.9cm; top:0.5cm;">115/10/14' in short
-    assert 'left:5.9cm; top:2.5cm;">25KG' in short
+    assert 'left:6.2cm; top:0.5cm;">115/10/14' in short
+    assert 'left:6.2cm; top:2.5cm;">25KG' in short
     for number, name in [("1234567", "紅色"), ("12345", "黑色母粉"), ("", "紅色"), ("12345", "")]:
         normal = generate([{"編號": number, "名稱": name}], paper_stock="a4_driver")
         assert 'left:0.9cm; top:0.5cm;' in normal
@@ -147,8 +147,8 @@ def test_six_character_code_and_three_character_name_limits():
                           paper_stock="a4_driver")
         assert f'left:1.4cm; top:0.5cm; width:4.0cm;">{number}' in result
         assert f'left:1.0cm; top:2.5cm; width:3.2cm; font-size:19pt;"><span class="label-chinese">{name}</span>' in result
-        assert 'left:5.9cm; top:0.5cm;">115/10/14' in result
-        assert 'left:5.9cm; top:2.5cm;">30KG' in result
+        assert 'left:6.2cm; top:0.5cm;">115/10/14' in result
+        assert 'left:6.2cm; top:2.5cm;">30KG' in result
 
 
 def test_single_character_name_uses_only_its_own_print_offset():

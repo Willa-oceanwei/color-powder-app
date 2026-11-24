@@ -3247,8 +3247,9 @@ def generate_big_label_html(label_rows, *, paper_stock="a4_driver"):
     text_shift_up_cm = 0.5
     extra_row_gap_cm = 1.5
     left_col_x_cm = -0.1
-    right_col_x_cm = round(8.0 - side_margin_cm - text_shift_left_cm + carrier_offset_cm, 3)
-    left_text_width_cm = round(right_col_x_cm - left_col_x_cm - 0.5, 3)
+    right_col_anchor_cm = 8.0 - side_margin_cm - text_shift_left_cm + carrier_offset_cm
+    left_text_width_cm = round(right_col_anchor_cm - left_col_x_cm - 0.5, 3)
+    right_col_x_cm = round(right_col_anchor_cm + 0.3, 3)
 
     # 標籤上方僅 3.1cm 可列印（7.8cm − 4.7cm 預印公司資訊）。上下兩行
     # 分別距可列印區上、下緣 1cm；比例則置於兩行正中央。
