@@ -1,10 +1,11 @@
 """Compact filter form and paginated customer statement preview."""
 
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from uuid import uuid4
 from hashlib import sha256
 from calendar import monthrange
+from zoneinfo import ZoneInfo
 import json
 import logging
 
@@ -14,7 +15,10 @@ import streamlit.components.v1 as components
 
 from .customer_display import CustomerDisplay
 from .customer_repository import list_customers, customer_display_name
-from .receivable_report import build_statements, render_statement_print, statement_pages, monthly_receipt_summary
+from .receivable_report import (
+    build_statements, render_statement_print, statement_pages, monthly_receipt_summary,
+    statement_customer_sort_key,
+)
 from .paper_preview import theme_preview, dismiss_export_on_preview_click
 from .sales_return_repository import list_sales_returns
 from .shipment_repository import ShipmentError, get_shipment, list_shipments
@@ -106,8 +110,8 @@ def render_monthly_receipt_summary(config):
 def render_report(config, *, title="應收帳款明細表"):
     customers = list_customers(config, include_inactive=True)
     names = {c["customer_id"]: customer_display_name(c) for c in customers}
-    codes = [""] + list(names)
-    today = date.today()
+    codes = [""] + sorted(names, key=statement_customer_sort_key)
+    today = datetime.now(ZoneInfo("Asia/Taipei")).date()
     filter_col, export_col, scope_col = st.columns([1.2, 1.3, 5.5], vertical_alignment="center")
     with filter_col.popover("查詢條件", use_container_width=True):
         components.html('''<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8">
@@ -130,9 +134,18 @@ def render_report(config, *, title="應收帳款明細表"):
             cols = st.columns(2)
             lower = cols[0].selectbox("起始客戶編號", codes, format_func=lambda c: c + " · " + names[c] if c else "不限")
             upper = cols[1].selectbox("結束客戶編號", codes, format_func=lambda c: c + " · " + names[c] if c else "不限")
-            dates = st.columns(2)
-            start = dates[0].date_input("起始帳款日期", value=today.replace(day=1))
-            end = dates[1].date_input("結束帳款日期", value=today)
+            whole_month = st.checkbox("本月整月明細", key="receivable_whole_month")
+            start_key, end_key = "receivable_report_start", "receivable_report_end"
+            if whole_month:
+                for key in (start_key, end_key):
+                    if key in st.session_state:
+                        st.session_state[key] = st.session_state[key]
+                start, end = month_receipt_period(today.year, today.month, 31)
+                st.caption(f"帳款期間　{start:%Y/%m/%d} ～ {end:%Y/%m/%d}")
+            else:
+                dates = st.columns(2)
+                start = dates[0].date_input("起始帳款日期", value=today.replace(day=1), key=start_key)
+                end = dates[1].date_input("結束帳款日期", value=today, key=end_key)
             paper_col, hide_col, paid_col = st.columns([1, 1.5, 1.5], vertical_alignment="center")
             paper = paper_col.selectbox("紙張尺寸", ("A4", "三聯紙 240 × 140 mm", "依內容自動選擇", "A5"))
             hide_empty = hide_col.toggle("本期未交易者不顯示", value=True)

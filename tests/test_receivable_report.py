@@ -1,5 +1,5 @@
 from copy import deepcopy
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from uuid import uuid4
 
@@ -93,6 +93,49 @@ render_report(DatabaseConfig(backend="sqlite", path=Path({str(config.path)!r})))
     assert not app.exception and len(calls) == 2
     assert len(app.session_state["receivable_pages"]) == 1
     assert "A01" in app.session_state["receivable_report_scope"]
+
+
+def test_report_orders_customer_codes_and_can_select_whole_current_month(config, monkeypatch):
+    from utils import receivable_ui as ui
+
+    class FixedDatetime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return cls(2026, 11, 24, tzinfo=tz)
+
+    monkeypatch.setattr(ui, "datetime", FixedDatetime)
+    for code, day in (("LA10", "2026-11-30"), ("LA2", "2026-11-01"), ("LA9", "2026-11-28"),
+                      ("LA11", "2026-11-28")):
+        create_customer(config, CustomerInput(code, "客戶 " + code))
+        shipment(config, code, shipment_date=day)
+    for day in ("2026-10-31", "2026-12-01"):
+        shipment(config, "LA9", shipment_date=day)
+    app = AppTest.from_string(f'''from pathlib import Path
+from utils.database import DatabaseConfig
+from utils.receivable_ui import render_report
+render_report(DatabaseConfig(backend="sqlite", path=Path({str(config.path)!r})))
+''').run()
+
+    for name in ("起始客戶編號", "結束客戶編號"):
+        picker = next(widget for widget in app.selectbox if widget.label == name)
+        assert [option.split(" · ")[0] for option in picker.options][-4:] == ["LA2", "LA9", "LA10", "LA11"]
+    next(widget for widget in app.selectbox if widget.label == "起始客戶編號").set_value("LA2")
+    next(widget for widget in app.selectbox if widget.label == "結束客戶編號").set_value("LA10")
+    app.date_input(key="receivable_report_start").set_value(date(2026, 11, 10))
+    app.date_input(key="receivable_report_end").set_value(date(2026, 11, 15)).run()
+    app.checkbox(key="receivable_whole_month").check().run()
+    assert "receivable_pages" not in app.session_state
+    app.button(key="receivable_preview").click().run()
+    assert not app.exception and not app.error
+    assert "2026/11/01 ～ 2026/11/30" in app.session_state["receivable_report_scope"]
+    statements = [page["statement"] for page in app.session_state["receivable_pages"]]
+    assert [row["customer_id"] for row in statements] == ["LA2", "LA9", "LA10"]
+    assert [document["date"] for row in statements for document in row["documents"]] == [
+        "2026-11-01", "2026-11-28", "2026-11-30",
+    ]
+    app.checkbox(key="receivable_whole_month").uncheck().run()
+    assert app.date_input(key="receivable_report_start").value == date(2026, 11, 10)
+    assert app.date_input(key="receivable_report_end").value == date(2026, 11, 15)
 
 
 def test_filter_shipment_date_customer_range_void_and_mixed_units(config):
