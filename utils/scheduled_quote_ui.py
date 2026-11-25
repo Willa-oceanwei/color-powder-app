@@ -13,7 +13,32 @@ from .scheduled_quote_repository import (
 from .shipment_repository import TAX_MODES
 
 
+REMINDER_HELP_STYLE = """
+<style>
+.st-key-scheduled_quote_reminder [data-testid="stHorizontalBlock"] {
+    flex-wrap: nowrap !important;
+    gap: 0.5rem !important;
+}
+.st-key-scheduled_quote_reminder [data-testid="stHorizontalBlock"] > :is([data-testid="stColumn"], [data-testid="column"]) {
+    flex: 0 0 auto !important;
+    width: auto !important;
+    min-width: 0 !important;
+}
+.st-key-scheduled_quote_reminder [data-testid="stPopover"] button {
+    width: 1.75rem;
+    min-height: 1.75rem;
+    padding: 0 !important;
+    border-radius: 50% !important;
+}
+.st-key-scheduled_quote_reminder [data-testid="stPopover"] button [data-testid="stIconMaterial"] {
+    display: none;
+}
+</style>
+"""
+
+
 def render_scheduled_quotes(config):
+    st.html(REMINDER_HELP_STYLE)
     st.subheader("預告報價")
     st.caption("生效日到達後，相同客戶的出貨單輸入相同貨號會提醒新報價；單價由你確認填入。")
     if st.button("重讀報價", key="scheduled_quote_reload"):
@@ -50,7 +75,17 @@ def render_scheduled_quotes(config):
             index=TAX_MODES.index(current.get("tax_mode", "外加")), key=prefix + "tax")
         effective_date = st.date_input("生效日期", value=date.fromisoformat(current["effective_date"]) if current else quote_today(), key=prefix + "date")
         notes = st.text_area("備註", value=current.get("notes", ""), key=prefix + "notes")
-        active = st.toggle("啟用此報價提醒", value=bool(current.get("active", True)), key=prefix + "active")
+        with st.container(key="scheduled_quote_reminder"):
+            reminder_col, help_col = st.columns(2, vertical_alignment="center")
+            active = reminder_col.toggle("啟用此報價提醒", value=bool(current.get("active", True)), key=prefix + "active")
+            with help_col.popover("?", help="報價提醒說明"):
+                st.markdown(
+                    "**補登已出貨的報價**　請保持啟用並填寫實際生效日，"
+                    "之後可在「貨品交易明細表」查到這筆價格紀錄。\n\n"
+                    "**啟用後**　報價生效後，編輯相同客戶、相同貨號的出貨單會顯示提醒，"
+                    "單價由你確認。\n\n"
+                    "**停用後**　這筆資料仍保留在「預告報價」管理頁。"
+                )
         submitted = st.form_submit_button("儲存預告報價", type="primary")
     if submitted:
         try:
