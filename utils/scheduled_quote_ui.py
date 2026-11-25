@@ -30,8 +30,12 @@ REMINDER_HELP_STYLE = """
     padding: 0 !important;
     border-radius: 50% !important;
 }
-.st-key-scheduled_quote_reminder [data-testid="stPopover"] button [data-testid="stIconMaterial"] {
+.st-key-scheduled_quote_reminder [data-testid="stPopover"] button svg {
     display: none;
+}
+[data-testid="stPopoverBody"]:has(.st-key-scheduled_quote_reminder_help) {
+    width: min(22rem, calc(100vw - 2rem)) !important;
+    box-sizing: border-box;
 }
 </style>
 """
@@ -78,7 +82,7 @@ def render_scheduled_quotes(config):
         with st.container(key="scheduled_quote_reminder"):
             reminder_col, help_col = st.columns(2, vertical_alignment="center")
             active = reminder_col.toggle("啟用此報價提醒", value=bool(current.get("active", True)), key=prefix + "active")
-            with help_col.popover("?", help="報價提醒說明"):
+            with help_col.popover("?", help="報價提醒說明"), st.container(key="scheduled_quote_reminder_help"):
                 st.markdown(
                     "**補登已出貨的報價**　請保持啟用並填寫實際生效日，"
                     "之後可在「貨品交易明細表」查到這筆價格紀錄。\n\n"
