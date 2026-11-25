@@ -148,7 +148,9 @@ render_report(DatabaseConfig(backend="sqlite", path=Path({str(config.path)!r})))
     assert [document["date"] for row in statements for document in row["documents"]] == [
         "2026-11-01", "2026-11-20", "2026-11-23", "2026-11-30", "2026-11-28",
     ]
-    assert any("帳面未收餘額" in item.proto.srcdoc for item in app.get("iframe"))
+    report_html = next(item.proto.srcdoc for item in app.get("iframe") if "本期合計" in item.proto.srcdoc)
+    assert "營業稅" in report_html and "本期總計" in report_html
+    assert "截至期末已登錄收款" not in report_html and "帳面未收餘額" not in report_html
     app.toggle(key="receivable_whole_month").set_value(False).run()
     assert app.selectbox(key="receivable_customer_start").value == "LA2"
     assert app.selectbox(key="receivable_customer_end").value == "LA10"
@@ -421,10 +423,8 @@ render_receivable_statement(DatabaseConfig(backend="sqlite",path=Path({str(confi
     # A normal rerun reuses prepared bytes; changing output settings discards them.
     app.run()
     assert len(export_calls) == 2
-    app.toggle(key='receivable_show_receipts').set_value(True).run()
-    assert set(app.session_state['receivable_exports']) == {'signature'}
-    app.button(key='receivable_prepare_pdf').click().run()
-    assert export_calls[-1][1]['show_receipts'] is True
+    assert not any(w.label == '顯示收款資訊' for w in app.toggle)
+    assert all(not settings['show_receipts'] for _, settings in export_calls)
     app.toggle(key='receivable_alternate_company').set_value(True).run()
     assert set(app.session_state['receivable_exports']) == {'signature'}
     app.button(key='receivable_prepare_excel').click().run()
