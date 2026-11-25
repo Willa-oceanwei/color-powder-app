@@ -36,7 +36,7 @@ def generate_small_label_html(rows, *, paper_stock="a4_driver", selected_positio
             fields = []
             # Leave the printed captions, unit, checkboxes, and company block clear.
             for key, x, y, width in (("編號", 0.15, 0.3, 2.45),
-                                      ("日期", 3.15, 0.3, 1.35),
+                                      ("日期", 3.45, 0.3, 1.35),
                                       ("名稱", 0.65, 1.0, 4.8),
                                       ("比例", 2.2, 1.95, 1.45)):
                 y = round(y + (0, 0.1, 0.3, 0.5, 0.6)[index // 2], 3)
