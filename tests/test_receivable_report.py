@@ -242,7 +242,7 @@ render_shipment_management(DatabaseConfig(backend="sqlite",path=Path({str(config
     next(w for w in app.button if w.label == "查詢").click().run()
     assert not app.exception
     assert app.session_state["shipment_customer_start"] == "A02"
-    assert app.dataframe[0].value["客戶編號"].tolist() == ["A02"]
+    assert app.table[0].value["客戶編號"].tolist() == ["A02"]
     assert "查詢結果 · 1 筆" in [w.label for w in app.expander]
     next(w for w in app.text_input if w.label == "起始客戶編號").set_value("A03")
     next(w for w in app.button if w.label == "查詢").click().run()
