@@ -900,14 +900,14 @@ def apply_modern_style():
 =================================================== */
 
 div.block-container .stTabs [data-baseweb="tab-list"],
-:is(.st-key-production_order_view, .st-key-inventory_view) [role="radiogroup"]{
+:is(.st-key-production_order_view, .st-key-inventory_view, .st-key-shipment_detail_tabs) [role="radiogroup"]{
     gap:6px;
     border-bottom:1px solid rgba(255,255,255,0.08);
 }
 
 /* tab */
 div.block-container .stTabs [data-baseweb="tab-list"] > button,
-:is(.st-key-production_order_view, .st-key-inventory_view) [role="radiogroup"] > label{
+:is(.st-key-production_order_view, .st-key-inventory_view, .st-key-shipment_detail_tabs) [role="radiogroup"] > label{
 
     background:#0b2f4a !important;
     color:#cfd8e3 !important;
@@ -926,14 +926,14 @@ div.block-container .stTabs [data-baseweb="tab-list"] > button,
 
 /* hover */
 div.block-container .stTabs [data-baseweb="tab-list"] > button:hover,
-:is(.st-key-production_order_view, .st-key-inventory_view) [role="radiogroup"] > label:hover{
+:is(.st-key-production_order_view, .st-key-inventory_view, .st-key-shipment_detail_tabs) [role="radiogroup"] > label:hover{
     background:#124466 !important;
     color:#ffffff !important;
 }
 
 /* active */
 div.block-container .stTabs [data-baseweb="tab-list"] > button[aria-selected="true"],
-:is(.st-key-production_order_view, .st-key-inventory_view) [role="radiogroup"] > label:has(> input:checked){
+:is(.st-key-production_order_view, .st-key-inventory_view, .st-key-shipment_detail_tabs) [role="radiogroup"] > label:has(> input:checked){
 
     background:#c6582f !important;
     color:#ffffff !important;
@@ -945,13 +945,13 @@ div.block-container .stTabs [data-baseweb="tab-list"] > button[aria-selected="tr
 }
 
 /* The server uses radio selection to mount only the active panel. */
-:is(.st-key-production_order_view, .st-key-inventory_view) [role="radiogroup"]{
+:is(.st-key-production_order_view, .st-key-inventory_view, .st-key-shipment_detail_tabs) [role="radiogroup"]{
     flex-wrap:nowrap;
     overflow-x:auto;
     padding-top:2px;
 }
 
-:is(.st-key-production_order_view, .st-key-inventory_view) [role="radiogroup"] > label{
+:is(.st-key-production_order_view, .st-key-inventory_view, .st-key-shipment_detail_tabs) [role="radiogroup"] > label{
     flex:0 0 auto;
     min-height:32px;
     margin:0;
@@ -959,21 +959,21 @@ div.block-container .stTabs [data-baseweb="tab-list"] > button[aria-selected="tr
     cursor:pointer;
 }
 
-:is(.st-key-production_order_view, .st-key-inventory_view) label[data-baseweb="radio"] > div:first-child{
+:is(.st-key-production_order_view, .st-key-inventory_view, .st-key-shipment_detail_tabs) label[data-baseweb="radio"] > div:first-child{
     display:none;
 }
 
-:is(.st-key-production_order_view, .st-key-inventory_view) label[data-baseweb="radio"] p{
+:is(.st-key-production_order_view, .st-key-inventory_view, .st-key-shipment_detail_tabs) label[data-baseweb="radio"] p{
     margin:0;
     color:inherit;
     font:inherit;
 }
 
-:is(.st-key-production_order_view, .st-key-inventory_view) label[data-baseweb="radio"]:has(> input:checked) p{
+:is(.st-key-production_order_view, .st-key-inventory_view, .st-key-shipment_detail_tabs) label[data-baseweb="radio"]:has(> input:checked) p{
     color:#ffffff !important;
 }
 
-:is(.st-key-production_order_view, .st-key-inventory_view) label[data-baseweb="radio"]:has(> input:focus-visible){
+:is(.st-key-production_order_view, .st-key-inventory_view, .st-key-shipment_detail_tabs) label[data-baseweb="radio"]:has(> input:focus-visible){
     outline:2px solid #ffb199;
     outline-offset:-3px;
 }

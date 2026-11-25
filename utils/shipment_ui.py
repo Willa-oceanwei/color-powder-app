@@ -86,7 +86,7 @@ COMPACT_STYLE = """
 :is(.stMain, section.main):has(#shipment-page) label[data-baseweb="radio"]:has(input:checked)>div:first-child>div {background:#fff!important;}
 :is(.stMain, section.main):has(#shipment-page) label[data-baseweb="radio"]:not(:has(input:checked))>div:first-child>div {background:transparent!important;}
 :is(.stMain, section.main):has(#shipment-page) label[data-baseweb="radio"]:has(input:focus-visible)>div:first-child {outline:2px solid #8cc8ea;outline-offset:3px;}
-.stApp:has(.erp-title) :is(.stMain, section.main):has(#shipment-page) [data-testid="stRadio"] p,
+.stApp:has(.erp-title) :is(.stMain, section.main):has(#shipment-page) [data-testid="stRadio"]:not(:where(.st-key-shipment_detail_tabs *)) p,
 .stApp:has(.erp-title) :is(.stMain, section.main):has(#shipment-page) [data-testid="stMetricLabel"],
 .stApp:has(.erp-title) :is(.stMain, section.main):has(#shipment-page) [data-testid="stMetricLabel"] p,
 .stApp:has(.erp-title) :is(.stMain, section.main):has(#shipment-page) [data-testid="stMetricValue"] {color:#d5e1ec!important;}
@@ -1313,8 +1313,9 @@ def render_shipment_management(config, *, start_new_on_entry=False):
     with details:
         sections = ("交易明細", "發票資料", "帳款資料", "相關資料")
         if editing:
-            selected_section = st.radio("明細分頁", sections, key=prefix + "detail_section",
-                                        horizontal=True, label_visibility="collapsed")
+            with st.container(key="shipment_detail_tabs"):
+                selected_section = st.radio("明細分頁", sections, key=prefix + "detail_section",
+                                            horizontal=True, label_visibility="collapsed")
             transaction = invoice_tab = account = related = st.container()
         else:
             selected_section = None
