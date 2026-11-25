@@ -2,13 +2,14 @@
 
 import json
 import re
+from collections import defaultdict
 from decimal import Decimal
 from html import escape
 
 from .customer_repository import _mappings
 from .database import connect_from_config
 from .shipment_print import COMPANY, _wrap, display_amount, display_price, purchase_order_text, PURCHASE_ORDER_FIT
-from .shipment_repository import ShipmentError, _valid_date
+from .shipment_repository import ShipmentError, _valid_date, is_blank_price
 from .shipment_codes import printed_code
 from .print_stock import stock_geometry, stock_sheet, stock_style
 
@@ -21,16 +22,27 @@ def statement_customer_sort_key(code):
 
 
 def _unsettled_documents(documents):
-    returns = {}
+    returns = defaultdict(Decimal)
+    returned_quantities = defaultdict(Decimal)
     for document in documents:
         if original := document.get("original_number"):
-            returns[original] = returns.get(original, Decimal(0)) + Decimal(document["total"])
-    unpaid = {
-        document["number"] for document in documents
-        if "original_number" not in document
-        and Decimal(document["total"]) + returns.get(document["number"], 0) > Decimal(document["received"])
-    }
-    return [document for document in documents if document.get("original_number", document["number"]) in unpaid]
+            returns[original] += Decimal(document["total"])
+            for item in document["items"]:
+                returned_quantities[original, item["line_number"]] -= Decimal(item["quantity"])
+
+    unsettled = set()
+    for document in documents:
+        if "original_number" in document:
+            continue
+        number = document["number"]
+        balance = Decimal(document["total"]) + returns[number] - Decimal(document["received"])
+        if balance > 0 or any(
+            (is_blank_price(item.get("price")) or Decimal(item["price"]).is_zero())
+            and Decimal(item["quantity"]) > returned_quantities[number, item["line_number"]]
+            for item in document["items"]
+        ):
+            unsettled.add(number)
+    return [document for document in documents if document.get("original_number", document["number"]) in unsettled]
 
 
 def build_statements(config, start, end, customer_start="", customer_end="", hide_empty=True, *,
@@ -115,6 +127,8 @@ def build_statements(config, start, end, customer_start="", customer_end="", hid
             for field in ("quantity", "amount"):
                 if item[field] != "":
                     item[field] = str(-Decimal(item[field]))
+        elif only_unsettled:
+            item["line_number"] = row["line_number"]
         documents[row["id"]]["items"].append(item)
     result = []
     for code in sorted(grouped, key=statement_customer_sort_key):
