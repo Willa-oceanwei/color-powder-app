@@ -158,6 +158,49 @@ render_report(DatabaseConfig(backend="sqlite", path=Path({str(config.path)!r})))
     assert app.date_input(key="receivable_report_end").value == date(2026, 11, 15)
 
 
+def test_unsettled_report_includes_zero_and_unquoted_shipment_lines(config):
+    def save(number, customer, *prices, paid_in_full=False):
+        document = blank_shipment()
+        document.update(shipment_number=number, number_mode="manual", customer_id=customer,
+                        customer_name="客戶 " + customer,
+                        shipment_date="2026-10-01", account_date="2026-10-01", paid_in_full=paid_in_full)
+        document["items"] = [
+            dict(code=f"{number}-{index}", name="測試貨品", quantity="2", unit="KG", price=price)
+            for index, price in enumerate(prices, 1)
+        ]
+        return save_shipment(config, document)
+
+    def return_items(document, quantities):
+        save_sales_return(config, return_id=str(uuid4()), shipment_id=document["id"],
+                          shipment_version=document["version"], return_date="2026-10-03",
+                          reason="Test return", quantities=quantities)
+
+    zero = save("ZERO", "A01", "0.00")
+    return_items(zero, {1: "1"})
+    save("BLANK", "A02", "")
+    mixed = save("MIXED", "A03", "100", "0")
+    receipt(config, mixed, 210)
+    save("PAID", "A01", "0", paid_in_full=True)
+    return_items(save("RETURNED", "A02", "0"), {1: "2"})
+    voided = save("VOIDED", "A03", "0")
+    void_shipment(config, voided["id"], voided["version"], "測試作廢")
+
+    statements = build_statements(config, "2026-10-01", "2026-10-31", only_unsettled=True)
+
+    assert [row["customer_id"] for row in statements] == ["A01", "A02", "A03"]
+    assert [row["balance"] for row in statements] == ["0", "0", "0"]
+    assert [[document["number"] for document in row["documents"] if "original_number" not in document]
+            for row in statements] == [["ZERO"], ["BLANK"], ["MIXED"]]
+    assert statements[0]["quantities"] == {"KG": "1"}
+    assert [item["price"] for item in statements[2]["documents"][0]["items"]] == ["100", "0"]
+
+    html = render_statement_print(statement_pages(statements))
+    for code in ("ZERO-1", "BLANK-1", "MIXED-2"):
+        assert code in html
+    for code in ("PAID-1", "RETURNED-1", "VOIDED-1"):
+        assert code not in html
+
+
 def test_filter_shipment_date_customer_range_void_and_mixed_units(config):
     first = shipment(config)
     second = shipment(config, "A02")
