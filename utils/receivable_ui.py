@@ -201,13 +201,10 @@ def render_report(config, *, title="應收帳款明細表"):
         st.markdown('<span id="receivable-export-panel"></span>', unsafe_allow_html=True)
         heading_col, receipt_col = st.columns(2)
         company_name = COMPANY["name"]
-        if title == "應收帳款明細表" and heading_col.toggle("抬頭改為加舜企業有限公司", key="receivable_alternate_company", value=False):
-            company_name = "加舜企業有限公司"
-        if unsettled_report:
-            if "receivable_show_receipts" in st.session_state:
-                st.session_state.receivable_show_receipts = st.session_state.receivable_show_receipts
-            receipt_col.caption("顯示已收款與未收餘額")
-            show_receipts = True
+        if title == "應收帳款明細表":
+            if heading_col.toggle("抬頭改為加舜企業有限公司", key="receivable_alternate_company", value=False):
+                company_name = "加舜企業有限公司"
+            show_receipts = False
         else:
             show_receipts = receipt_col.toggle("顯示收款資訊", key="receivable_show_receipts", value=False)
         feed_col, margin_col = st.columns([2, 1])
