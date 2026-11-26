@@ -1894,6 +1894,12 @@ st.markdown("""
             margin-top: -1rem !important;
         }
     }
+
+    /* Keep exceptions below the fixed toolbar, even during fragment reruns. */
+    div[data-testid="stAppViewContainer"] .block-container:has([data-testid="stException"]) {
+        margin-top: 0 !important;
+        padding-top: 4.5rem !important;
+    }
     </style>
 """, unsafe_allow_html=True)
 
