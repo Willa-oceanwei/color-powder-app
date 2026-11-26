@@ -126,9 +126,11 @@ def test_twelve_digit_purchase_order_and_mixed_units_share_summary_height():
     sheet = book['列印版']
     assert sheet['J10'].value == '123456789012'
     assert sheet['J10'].font.sz == 11 and not sheet['J10'].alignment.wrap_text
-    assert sheet['C11'].value == 2 and sheet['C12'].value == 3
-    assert sheet['I11'].value == 200 and sheet['I13'].value == 210
-    assert sheet['A14'].value == '台南市永康區中正南路309號'
+    assert all(cell.value is None for cell in sheet[11])
+    assert sheet['C12'].value == 2 and sheet['C13'].value == 3
+    assert sheet['F12'].value == '本期合計：'
+    assert sheet['I12'].value == 200 and sheet['I14'].value == 210
+    assert sheet['A15'].value == '台南市永康區中正南路309號'
 
 
 def test_excel_separates_each_shipment_even_on_the_same_date():
@@ -184,10 +186,10 @@ def test_receivable_widening_and_smaller_quantity_totals_do_not_change_other_rep
     assert '.quantity-summary{font-size:12pt}' in receivable
     assert '.stock-page>.sheet.a4{width:222mm}' not in other
     assert '.quantity-summary{font-size:12pt}' not in other
-    for title, size in [('應收帳款明細表', 12), ('客戶交易明細', 13)]:
+    for title, size, summary_row in [('應收帳款明細表', 12, 12), ('客戶交易明細', 13, 11)]:
         sheet = load_workbook(BytesIO(statement_excel([statement()], title=title)))['列印版']
-        assert all(sheet[cell].font.sz == size for cell in ['A11', 'C11', 'D11'])
-        assert sheet['I11'].font.sz == 13
+        assert all(sheet[f'{column}{summary_row}'].font.sz == size for column in 'ACD')
+        assert sheet[f'I{summary_row}'].font.sz == 13
 
     canvases = []
     def canvas(title, *, a5=False):
