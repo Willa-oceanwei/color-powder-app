@@ -251,6 +251,37 @@ def test_related_suffix_codes_are_explicit_safe_and_exclude_void(config):
     assert not product_transactions(config, "69960' OR 1=1 --", include_related=True)
 
 
+def test_expanded_recipe_search_displays_all_codes_and_their_own_prices(config, monkeypatch):
+    from utils import product_transaction_report as report
+
+    monkeypatch.setattr(report, "quote_today", lambda: date(2026, 11, 26))
+    family_codes = {"52814", "52814A", "52814B", "82814M", "82814M-1"}
+    unrelated_codes = {"82815M", "X2814M", "528140", "52814M-X", "152814M"}
+    for index, code in enumerate(sorted(family_codes | unrelated_codes)):
+        shipment(config, f"TEST-{index}", code=code, price="100")
+    cancelled = shipment(config, "VOID", code="82814M-2")
+    void_shipment(config, cancelled["id"], cancelled["version"], "取消")
+    for code, price in (("82814M-1", "150"), ("82815M", "900")):
+        save_scheduled_quote(config, dict(customer_id="C01", product_code=code, effective_date="2026-11-01",
+                                          price=price, unit="包", tax_mode="外加"))
+
+    app = history_app(config)
+    search(app, "52814")
+    assert set(app.tabs[0].dataframe[0].value["貨品／配方編號"]) == {"52814"}
+    app.checkbox(key="product_history_expand_family").set_value(True).run()
+    for query in (None, "82814m-1"):
+        if query:
+            search(app, query)
+        assert not app.exception and not app.error
+        assert set(app.tabs[0].dataframe[0].value["貨品／配方編號"]) == family_codes
+        assert set(app.tabs[1].dataframe[0].value["貨品／配方編號"]) == family_codes
+        assert any("82814M-1" in item.value and "從 100 元/包 調為 150 元/包" in item.value for item in app.info)
+        assert "82815M" not in {item["code"] for item in app.session_state["product_history_result"]["price_notices"]}
+
+    app.checkbox(key="product_history_expand_family").set_value(False).run()
+    assert set(app.tabs[0].dataframe[0].value["貨品／配方編號"]) == {"82814M-1"}
+
+
 def test_related_code_picker_all_customers_latest_and_price_groups(config, monkeypatch):
     shipment(config, "001", code="69960", day="2026-10-01", price="100")
     shipment(config, "002", code="69960A", day="2026-10-02", price="200")

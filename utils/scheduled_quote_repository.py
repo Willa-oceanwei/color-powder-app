@@ -20,7 +20,8 @@ def quote_today():
 
 
 @cached_read
-def list_scheduled_quotes(config, customer_id=None, *, include_inactive=False, product_code_prefix=None):
+def list_scheduled_quotes(config, customer_id=None, *, include_inactive=False,
+                          product_code_prefix=None, product_code_glob=None):
     clauses, args = [], []
     if customer_id is not None:
         clauses.append("q.customer_id=?")
@@ -30,6 +31,9 @@ def list_scheduled_quotes(config, customer_id=None, *, include_inactive=False, p
     if product_code_prefix is not None:
         clauses.append("substr(q.product_code,1,length(?))=?")
         args.extend((product_code_prefix, product_code_prefix))
+    if product_code_glob is not None:
+        clauses.append("q.product_code GLOB ?")
+        args.append(product_code_glob)
     where = "WHERE " + " AND ".join(clauses) if clauses else ""
     with connect_from_config(config) as conn:
         return _mappings(conn.execute(
