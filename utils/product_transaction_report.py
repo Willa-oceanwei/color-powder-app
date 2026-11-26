@@ -2,10 +2,13 @@
 
 from datetime import date
 from decimal import Decimal
+import json
 import re
+from collections import defaultdict
 
 from .customer_repository import _mappings
 from .database import connect_from_config
+from .read_cache import cached_read
 from .scheduled_quote_repository import list_scheduled_quotes, quote_today
 from .shipment_repository import ShipmentError, is_blank_price
 
@@ -25,6 +28,31 @@ def _code_family(code, *, expanded=False):
     return glob_prefix + "*", re.compile(regex_prefix + suffix)
 
 
+@cached_read
+def _expanded_recipe_codes(config, code):
+    """Follow saved original-recipe links in both directions, including chains."""
+    with connect_from_config(config) as conn:
+        links = conn.execute(
+            "SELECT UPPER(TRIM(recipe_id)), UPPER(TRIM(original_recipe)) "
+            "FROM recipes WHERE TRIM(original_recipe) <> ''"
+        ).fetchall()
+    linked_codes = defaultdict(set)
+    for recipe, original in links:
+        linked_codes[original].add(recipe)
+        linked_codes[recipe].add(original)
+
+    related = {code}
+    if family := _code_family(code, expanded=True):
+        pattern = family[1]
+        related.update(value for value in linked_codes if pattern.fullmatch(value))
+    remaining = list(related)
+    while remaining:
+        new = linked_codes[remaining.pop()] - related
+        related.update(new)
+        remaining.extend(new)
+    return tuple(sorted(related))
+
+
 def product_transactions(config, code, start=None, end=None, *, include_prior=False,
                          include_related=False, expand_family=False):
     code = str(code or "").strip().upper()
@@ -39,7 +67,12 @@ def product_transactions(config, code, start=None, end=None, *, include_prior=Fa
         raise ShipmentError("起始日期不可晚於結束日期")
     family = _code_family(code, expanded=expand_family) if include_related or expand_family else None
     code_expression = "UPPER(TRIM(json_extract(i.payload_json,'$.code')))"
-    if family:
+    related = set(_expanded_recipe_codes(config, code)) if expand_family else {code}
+    if expand_family:
+        conditions = ["s.status='draft'", f"({code_expression} GLOB ? OR "
+                      f"{code_expression} IN (SELECT value FROM json_each(?)))"]
+        args = [family[0] if family else None, json.dumps(sorted(related))]
+    elif family:
         conditions = ["s.status='draft'", code_expression + " GLOB ?"]
         args = [family[0]]
     else:
@@ -66,7 +99,7 @@ def product_transactions(config, code, start=None, end=None, *, include_prior=Fa
             + " ORDER BY s.shipment_date DESC,s.created_at DESC,s.shipment_number DESC,s.id,i.line_number", args))
     if family:
         pattern = family[1]
-        rows = [row for row in rows if pattern.fullmatch(str(row["code"]).strip().upper())]
+        rows = [row for row in rows if (key := str(row["code"]).strip().upper()) in related or pattern.fullmatch(key)]
     return rows
 
 
@@ -102,16 +135,16 @@ def product_price_notices(config, code, rows, *, expand_family=False):
     """Link dated quotes without treating ordinary sale-price changes as official adjustments."""
     code = code.strip().upper()
     scope = _code_family(code, expanded=expand_family)
-    if scope:
-        glob, family = scope
-        quotes = list_scheduled_quotes(config, product_code_glob=glob)
+    glob, family = scope if scope else (None, re.compile(re.escape(code)))
+    related = _expanded_recipe_codes(config, code) if expand_family else ()
+    if glob or related:
+        quotes = list_scheduled_quotes(config, product_code_glob=glob, related_product_codes=related)
     else:
-        family = re.compile(re.escape(code))
         quotes = list_scheduled_quotes(config, product_code_prefix=code)
     cutoff = quote_today().isoformat()
     daily_quotes = {}
     for quote in quotes:
-        if quote["effective_date"] <= cutoff and family.fullmatch(quote["product_code"]):
+        if quote["effective_date"] <= cutoff and (quote["product_code"] in related or family.fullmatch(quote["product_code"])):
             identity = (quote["product_code"], quote["customer_id"], quote["unit"], quote["tax_mode"])
             # Quotes arrive newest first; the last recorded price for a day wins.
             daily_quotes.setdefault((identity, quote["effective_date"]), quote)

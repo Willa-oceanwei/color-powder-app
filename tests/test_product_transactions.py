@@ -8,6 +8,7 @@ from utils.customer_repository import CustomerInput, create_customer
 from utils.database import DatabaseConfig, connect_from_config, initialize_database
 from utils.product_transaction_report import product_transactions, product_price_changes
 from utils.product_transaction_ui import taiwan_timestamp
+from utils.recipe_repository import create_recipe
 from utils.scheduled_quote_repository import save_scheduled_quote
 from utils.shipment_repository import ShipmentError, blank_shipment, save_shipment, void_shipment
 
@@ -280,6 +281,37 @@ def test_expanded_recipe_search_displays_all_codes_and_their_own_prices(config, 
 
     app.checkbox(key="product_history_expand_family").set_value(False).run()
     assert set(app.tabs[0].dataframe[0].value["貨品／配方編號"]) == {"82814M-1"}
+
+
+@pytest.mark.parametrize("main", ["C10499", "B00886", "A1434"])
+def test_expanded_recipe_search_keeps_letter_prefix_in_main_code(config, main):
+    excluded = "Z" + main[1:]
+    codes = {main, main + "A", main + "M-1"}
+    for index, code in enumerate(sorted(codes | {excluded, main[1:], main + "0"})):
+        shipment(config, f"LETTER-{index}", code=code)
+    for query in (main, main + "M-1"):
+        assert {row["code"] for row in product_transactions(config, query, expand_family=True)} == codes
+
+
+def test_expanded_search_follows_saved_original_recipe_links(config, monkeypatch):
+    from utils import product_transaction_report as report
+
+    monkeypatch.setattr(report, "quote_today", lambda: date(2026, 11, 26))
+    for code, parent in (("C10499", ""), ("MIX-RED", "C10499"), ("PREMIX", "MIX-RED")):
+        create_recipe(config, {"配方編號": code, "原始配方": parent,
+                               "配方類別": "附加配方" if parent else "原始配方"})
+    for index, code in enumerate(("C10499", "MIX-RED", "PREMIX", "C10499M-1")):
+        shipment(config, f"LINK-{index}", code=code, price="100")
+    save_scheduled_quote(config, dict(customer_id="C01", product_code="PREMIX", effective_date="2026-11-01",
+                                      price="150", unit="包", tax_mode="外加"))
+    for query in ("C10499", "C10499M-1"):
+        rows = product_transactions(config, query, expand_family=True)
+        assert {row["code"] for row in rows} == {"C10499", "MIX-RED", "PREMIX", "C10499M-1"}
+        notices = report.product_price_notices(config, query, rows, expand_family=True)
+        assert any(notice["code"] == "PREMIX" and notice["kind"] == "價格調整" for notice in notices)
+    assert {row["code"] for row in product_transactions(config, "PREMIX", expand_family=True)} == {
+        "C10499", "MIX-RED", "PREMIX",
+    }
 
 
 def test_related_code_picker_all_customers_latest_and_price_groups(config, monkeypatch):
