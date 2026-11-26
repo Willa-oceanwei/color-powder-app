@@ -103,6 +103,8 @@ def statement_excel(statements, *, show_receipts=False, title="應收帳款明�
                     cell.border = Border(top=Side(style="dotted", color="000000"))
         end = base + 9 + len(page["rows"])
         if page["last"]:
+            if title == "應收帳款明細表":
+                end += 1
             quantity_size = 12 if title == "應收帳款明細表" else 13
             for index, (unit, amount) in enumerate(s["quantities"].items(), end):
                 put(index, 1, "數量合計：", end=2, size=quantity_size)
