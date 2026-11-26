@@ -8,6 +8,7 @@ from utils.customer_repository import CustomerInput, create_customer
 from utils.database import DatabaseConfig, connect_from_config, initialize_database
 from utils.product_transaction_report import product_transactions, product_price_changes
 from utils.product_transaction_ui import taiwan_timestamp
+from utils.recipe_repository import create_recipe
 from utils.scheduled_quote_repository import save_scheduled_quote
 from utils.shipment_repository import ShipmentError, blank_shipment, save_shipment, void_shipment
 
@@ -89,6 +90,10 @@ def search(app, code):
     next(w for w in app.button if w.label == '查詢').click().run()
 
 
+def customer_toggles(app):
+    return [toggle for toggle in app.toggle if toggle.key.startswith("product_history_customer_")]
+
+
 def test_history_customer_toggles_filter_union_clear_and_reset(config, monkeypatch):
     shipment(config, '001', customer='C01', count=2)
     shipment(config, '002', customer='C02')
@@ -104,9 +109,9 @@ def test_history_customer_toggles_filter_union_clear_and_reset(config, monkeypat
     assert not app.exception and not calls
     assert all(w.value is None for w in app.date_input)
     search(app, 'P1')
-    assert not app.exception and len(app.toggle) == 2
+    assert not app.exception and len(customer_toggles(app)) == 2
     assert len(app.dataframe[0].value) == 3
-    first_key, second_key = app.toggle[0].key, app.toggle[1].key
+    first_key, second_key = [toggle.key for toggle in customer_toggles(app)]
     app.toggle(key=first_key).set_value(True).run()
     assert set(app.dataframe[0].value['客戶編號']) == {'C01'}
     app.toggle(key=second_key).set_value(True).run()
@@ -117,10 +122,10 @@ def test_history_customer_toggles_filter_union_clear_and_reset(config, monkeypat
     assert len(app.dataframe[0].value) == 3 and len(calls) == 1
     app.toggle(key=first_key).set_value(True).run()
     search(app, 'R2')
-    assert not app.exception and not app.toggle
+    assert not app.exception and not customer_toggles(app)
     assert set(app.dataframe[0].value['客戶編號']) == {'C03'}
     search(app, 'P1')
-    assert not any(w.value for w in app.toggle)
+    assert not any(w.value for w in customer_toggles(app))
     assert len(app.dataframe[0].value) == 3
 
 
@@ -130,7 +135,7 @@ def test_history_dates_single_customer_empty_and_invalid_clear_old_results(confi
     app = history_app(config)
     app.date_input(key='product_history_start').set_value(date(2026, 10, 1))
     search(app, 'P1')
-    assert not app.exception and not app.toggle
+    assert not app.exception and not customer_toggles(app)
     assert len(app.dataframe[0].value) == 1
     app.date_input(key='product_history_end').set_value(date(2026, 9, 1))
     search(app, 'P1')
@@ -138,7 +143,7 @@ def test_history_dates_single_customer_empty_and_invalid_clear_old_results(confi
     app.date_input(key='product_history_start').set_value(None)
     app.date_input(key='product_history_end').set_value(None)
     search(app, 'UNKNOWN')
-    assert app.info and not app.toggle and not app.dataframe
+    assert app.info and not customer_toggles(app) and not app.dataframe
 
 
 def test_price_history_exact_comparisons_groups_reversals_and_void(config):
@@ -194,10 +199,10 @@ def test_price_tab_uses_earlier_baseline_and_shares_customer_filter(config, monk
     prices = app.tabs[1].dataframe[0].value
     assert prices['異動類型'].tolist() == ['初始售價', '調漲']
     assert prices.iloc[1]['原單價'] == '100' and prices.iloc[1]['漲跌'] == '+20'
-    app.toggle[0].set_value(True).run()
+    customer_toggles(app)[0].set_value(True).run()
     assert set(app.tabs[1].dataframe[0].value['客戶編號']) == {'C01'}
     assert len(calls) == 1
-    app.toggle[0].set_value(False).run()
+    customer_toggles(app)[0].set_value(False).run()
     app.date_input(key='product_history_start').set_value(None)
     search(app, 'P1')
     assert sum(app.tabs[1].dataframe[0].value['異動類型'] == '初始售價') == 2
@@ -229,7 +234,7 @@ def test_price_notice_prefers_dated_quotes_and_falls_back_to_first_sale(config, 
     assert not any("999 元/kg" in row.value or "777 元/kg" in row.value for row in app.markdown)
     assert set(app.tabs[0].dataframe[0].value["單價"]) == {"700", "900"}
 
-    next(toggle for toggle in app.toggle if toggle.label.startswith("C02")).set_value(True).run()
+    next(toggle for toggle in customer_toggles(app) if toggle.label.startswith("C02")).set_value(True).run()
     assert any("115/05/01 最早成交價" in notice.value and "780 元/kg" in notice.value for notice in app.info)
     assert not any("價格調整" in notice.value for notice in app.info)
 
@@ -249,6 +254,68 @@ def test_related_suffix_codes_are_explicit_safe_and_exclude_void(config):
     assert not product_transactions(config, "69960%", include_related=True)
     assert not product_transactions(config, "69960_", include_related=True)
     assert not product_transactions(config, "69960' OR 1=1 --", include_related=True)
+
+
+def test_expanded_recipe_search_displays_all_codes_and_their_own_prices(config, monkeypatch):
+    from utils import product_transaction_report as report
+
+    monkeypatch.setattr(report, "quote_today", lambda: date(2026, 11, 26))
+    family_codes = {"52814", "52814A", "52814B", "82814M", "82814M-1"}
+    unrelated_codes = {"82815M", "X2814M", "528140", "52814M-X", "152814M"}
+    for index, code in enumerate(sorted(family_codes | unrelated_codes)):
+        shipment(config, f"TEST-{index}", code=code, price="100")
+    cancelled = shipment(config, "VOID", code="82814M-2")
+    void_shipment(config, cancelled["id"], cancelled["version"], "取消")
+    for code, price in (("82814M-1", "150"), ("82815M", "900")):
+        save_scheduled_quote(config, dict(customer_id="C01", product_code=code, effective_date="2026-11-01",
+                                          price=price, unit="包", tax_mode="外加"))
+
+    app = history_app(config)
+    search(app, "52814")
+    assert set(app.tabs[0].dataframe[0].value["貨品／配方編號"]) == {"52814"}
+    app.toggle(key="product_history_expand_family").set_value(True).run()
+    for query in (None, "82814m-1"):
+        if query:
+            search(app, query)
+        assert not app.exception and not app.error
+        assert set(app.tabs[0].dataframe[0].value["貨品／配方編號"]) == family_codes
+        assert set(app.tabs[1].dataframe[0].value["貨品／配方編號"]) == family_codes
+        assert any("82814M-1" in item.value and "從 100 元/包 調為 150 元/包" in item.value for item in app.info)
+        assert "82815M" not in {item["code"] for item in app.session_state["product_history_result"]["price_notices"]}
+
+    app.toggle(key="product_history_expand_family").set_value(False).run()
+    assert set(app.tabs[0].dataframe[0].value["貨品／配方編號"]) == {"82814M-1"}
+
+
+@pytest.mark.parametrize("main", ["C10499", "B00886", "A1434"])
+def test_expanded_recipe_search_keeps_letter_prefix_in_main_code(config, main):
+    excluded = "Z" + main[1:]
+    codes = {main, main + "A", main + "M-1"}
+    for index, code in enumerate(sorted(codes | {excluded, main[1:], main + "0"})):
+        shipment(config, f"LETTER-{index}", code=code)
+    for query in (main, main + "M-1"):
+        assert {row["code"] for row in product_transactions(config, query, expand_family=True)} == codes
+
+
+def test_expanded_search_follows_saved_original_recipe_links(config, monkeypatch):
+    from utils import product_transaction_report as report
+
+    monkeypatch.setattr(report, "quote_today", lambda: date(2026, 11, 26))
+    for code, parent in (("C10499", ""), ("MIX-RED", "C10499"), ("PREMIX", "MIX-RED")):
+        create_recipe(config, {"配方編號": code, "原始配方": parent,
+                               "配方類別": "附加配方" if parent else "原始配方"})
+    for index, code in enumerate(("C10499", "MIX-RED", "PREMIX", "C10499M-1")):
+        shipment(config, f"LINK-{index}", code=code, price="100")
+    save_scheduled_quote(config, dict(customer_id="C01", product_code="PREMIX", effective_date="2026-11-01",
+                                      price="150", unit="包", tax_mode="外加"))
+    for query in ("C10499", "C10499M-1"):
+        rows = product_transactions(config, query, expand_family=True)
+        assert {row["code"] for row in rows} == {"C10499", "MIX-RED", "PREMIX", "C10499M-1"}
+        notices = report.product_price_notices(config, query, rows, expand_family=True)
+        assert any(notice["code"] == "PREMIX" and notice["kind"] == "價格調整" for notice in notices)
+    assert {row["code"] for row in product_transactions(config, "PREMIX", expand_family=True)} == {
+        "C10499", "MIX-RED", "PREMIX",
+    }
 
 
 def test_related_code_picker_all_customers_latest_and_price_groups(config, monkeypatch):
@@ -271,7 +338,7 @@ def test_related_code_picker_all_customers_latest_and_price_groups(config, monke
     assert picker.value == "69960"
     assert any("69960M" in notice.value and "2026-11-01" in notice.value for notice in app.info)
     assert set(app.tabs[0].dataframe[0].value["貨品／配方編號"]) == {"69960"}
-    app.toggle[0].set_value(True).run()
+    customer_toggles(app)[0].set_value(True).run()
     assert any("所選客戶最近一筆出貨：C01 · 69960M" in item.value for item in app.caption)
     app.selectbox(key=picker.key).set_value("69960M").run()
     assert set(app.tabs[0].dataframe[0].value["貨品／配方編號"]) == {"69960M"}
@@ -280,11 +347,11 @@ def test_related_code_picker_all_customers_latest_and_price_groups(config, monke
     prices = app.tabs[1].dataframe[0].value
     assert set(prices["貨品／配方編號"]) == {"69960", "69960A", "69960M"}
     assert set(prices["異動類型"]) == {"初始售價"}
-    app.toggle[0].set_value(False).run()
+    customer_toggles(app)[0].set_value(False).run()
     assert len(app.tabs[0].dataframe[0].value) == 4 and len(calls) == 1
     search(app, "69960M")
     assert app.selectbox(key=f"product_history_variant_{app.session_state['product_history_epoch']}").value == "69960M"
-    assert not any(toggle.value for toggle in app.toggle)
+    assert not any(toggle.value for toggle in customer_toggles(app))
 
 
 def test_single_suffix_match_shows_actual_code_in_details_and_prices(config):

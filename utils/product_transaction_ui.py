@@ -28,6 +28,9 @@ def taiwan_timestamp(value):
 def _query_help():
     with st.popover("查詢說明", use_container_width=True):
         st.write("以出貨明細查詢；同主編號有不同字母尾碼時，可選單一編號或全部列出，作廢單不列入。")
+        st.write("勾選「包含相關配方」，會納入已登記原始配方的關聯，以及字母和 -1 等尾碼。"
+                 "五位數的主編號按後四碼找相關配方，例如 52814 會查到 82814M-1。"
+                 "有字首的主編號會保留字首，例如 C10499、B00886、A1434。")
         st.write("日期留白會查全部期間；登錄時間顯示台灣時間。")
         st.write("右側客戶可複選，未勾選時顯示全部客戶。")
         st.write("售價異動依同一編號、客戶、單位、課稅方式比較成交單價；保留初始售價，相同價格不重複列出。")
@@ -83,9 +86,16 @@ def render_product_transactions(config):
         start = start_col.date_input("起始出貨日期（選填）", value=None, key="product_history_start")
         end = end_col.date_input("結束出貨日期（選填）", value=None, key="product_history_end")
         submitted = submit_col.form_submit_button("查詢", use_container_width=True)
-    if submitted:
+    expand_family = st.toggle("包含相關配方", key="product_history_expand_family")
+    previous = st.session_state.get("product_history_result")
+    scope_changed = (previous and previous["config"] == repr(config)
+                     and expand_family != previous.get("expand_family", False))
+    if submitted or scope_changed:
+        if not submitted:
+            code, start, end = previous["code"], previous["start"], previous["end"]
         try:
-            all_rows = product_transactions(config, code, start, end, include_prior=True, include_related=True)
+            all_rows = product_transactions(config, code, start, end, include_prior=True,
+                                            include_related=True, expand_family=expand_family)
             in_period = lambda row: (not start or row["shipment_date"] >= start.isoformat()) and (
                 not end or row["shipment_date"] <= end.isoformat())
             rows = [row for row in all_rows if in_period(row)]
@@ -98,13 +108,13 @@ def render_product_transactions(config):
             st.error("交易明細讀取失敗，請稍後重新查詢")
         else:
             try:
-                notices = product_price_notices(config, code, all_rows)
+                notices = product_price_notices(config, code, all_rows, expand_family=expand_family)
             except Exception:
                 notices = None
             epoch = st.session_state.get("product_history_epoch", 0) + 1
             st.session_state.product_history_epoch = epoch
             st.session_state.product_history_result = {
-                "config": repr(config), "code": code.upper(), "start": start, "end": end,
+                "config": repr(config), "code": code.upper(), "start": start, "end": end, "expand_family": expand_family,
                 "rows": rows, "all_rows": all_rows, "price_changes": prices, "price_notices": notices, "epoch": epoch}
     result = st.session_state.get("product_history_result")
     if not result or result["config"] != repr(config):
@@ -128,7 +138,7 @@ def render_product_transactions(config):
             caption += f"；最近出貨：{latest['code']} · {latest['shipment_date']}（全部期間）"
         notice_col.info(caption)
         options = ["__all__"] + matching_codes
-        default = options.index(result["code"]) if result["code"] in options else 0
+        default = 0 if result.get("expand_family") or result["code"] not in options else options.index(result["code"])
         chosen_code = choice_col.selectbox(
             "選擇查詢編號", options, index=default, key=f"product_history_variant_{result['epoch']}",
             format_func=lambda value: "全部相近編號" if value == "__all__" else
