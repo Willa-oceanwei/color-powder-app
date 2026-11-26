@@ -91,3 +91,12 @@ st.write(st.session_state.page)
     assert not app.exception and app.session_state['page'] == 1
     assert app.button(key='test_next_page').disabled and app.number_input(key='test_jump_page').value == 1
     assert any('第 1–12 筆' in caption.value for caption in app.caption)
+
+
+def test_stale_pagination_jump_keeps_current_page(monkeypatch):
+    state = {"page": 2}
+    monkeypatch.setattr(list_ui.st, "session_state", state)
+
+    list_ui._jump_page("page", "test_jump_page", 3)
+
+    assert state == {"page": 2}

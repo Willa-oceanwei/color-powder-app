@@ -53,7 +53,10 @@ def _set_page(page_key, page, total_pages):
 
 
 def _jump_page(page_key, widget_key, total_pages):
-    _set_page(page_key, st.session_state[widget_key], total_pages)
+    # A delayed jump can arrive after its input has been removed or replaced.
+    requested_page = st.session_state.get(widget_key)
+    if requested_page is not None:
+        _set_page(page_key, requested_page, total_pages)
 
 
 def _change_limit(page_key):
