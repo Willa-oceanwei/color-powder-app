@@ -86,7 +86,7 @@ def render_product_transactions(config):
         start = start_col.date_input("起始出貨日期（選填）", value=None, key="product_history_start")
         end = end_col.date_input("結束出貨日期（選填）", value=None, key="product_history_end")
         submitted = submit_col.form_submit_button("查詢", use_container_width=True)
-    expand_family = st.checkbox("包含相關配方", key="product_history_expand_family")
+    expand_family = st.toggle("包含相關配方", key="product_history_expand_family")
     previous = st.session_state.get("product_history_result")
     scope_changed = (previous and previous["config"] == repr(config)
                      and expand_family != previous.get("expand_family", False))
