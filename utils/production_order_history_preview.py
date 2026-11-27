@@ -28,11 +28,4 @@ def render_production_order_history_preview(evidence, renderer, *, show_addition
         show_additional_ids=show_additional_ids,
         recipe_notice="歷史查閱副本，請勿依此生產。",
     )
-    document = re.sub(r"<script\b[^>]*>.*?</script>", "", document, flags=re.IGNORECASE | re.DOTALL)
-    return document.replace("</head>", """
-<style id="production-history-paper">
-@media screen {
-    html, body { background: #fff; color: #000; color-scheme: light; }
-}
-</style>
-</head>""", 1)
+    return re.sub(r"<script\b[^>]*>.*?</script>", "", document, flags=re.IGNORECASE | re.DOTALL)

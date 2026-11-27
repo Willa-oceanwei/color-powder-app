@@ -7788,10 +7788,17 @@ def render_production_order_workspace():
                     historical = load_production_order_history_preview(DATABASE_CONFIG, current_order_no)
                 if historical:
                     st.caption(historical["source"])
+                    history_html = render_production_order_history_preview(
+                        historical, generate_print_page_content, show_additional_ids=show_ids,
+                    )
                     components.html(
-                        render_production_order_history_preview(
-                            historical, generate_print_page_content, show_additional_ids=show_ids,
-                        ),
+                        history_html.replace("</head>", """
+<style id="production-history-paper">
+@media screen {
+    html, body { background: #fff; color: #000; color-scheme: light; }
+}
+</style>
+</head>""", 1),
                         height=430, scrolling=True,
                     )
                 else:
