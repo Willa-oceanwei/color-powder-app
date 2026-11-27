@@ -122,6 +122,8 @@ def test_verified_historical_preview_is_display_only(production_config):
     documents = [item.proto.srcdoc for item in app.get("iframe")]
     archive = next(document for document in documents if "ARCHIVED-POWDER" in document)
     assert "歷史查閱副本" in archive
+    assert 'id="production-history-paper"' in archive
+    assert "html, body { background: #fff; color: #000; color-scheme: light; }" in archive
     assert "window.print" not in archive
     saved = list_production_orders(production_config, include_recipe_snapshot=True)[0]
     assert saved["顏色"] == "Blue"
