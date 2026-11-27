@@ -30,6 +30,26 @@ def test_only_identity_and_ratio_survive_new_database_connection(tmp_path):
     assert build_big_label_editor_defaults(config, {"配方編號": "R002"}, [])[0]["編號"] == "R002"
 
 
+def test_saved_label_date_is_shared_by_size_but_scoped_to_one_order(tmp_path):
+    config = DatabaseConfig(backend="sqlite", path=tmp_path / "dates.db")
+    initialize_database(config.path)
+    order = {"配方編號": "R001", "生產單號": "P001"}
+    next_order = {**order, "生產單號": "P002"}
+    labels = [{"編號": "R001", "名稱": "Original", "日期": "115/10/16", "數量": qty}
+              for qty in ("25", "30")]
+    revised = [{"編號": "R001", "品名": "Edited", "日期": "115/10/20", "列印張數": 2}]
+    remember_big_label_rows(config, order, revised)
+    fresh_config = DatabaseConfig(backend="sqlite", path=config.path)
+
+    for kind in ("big", "small"):
+        same = build_big_label_editor_defaults(fresh_config, order, labels, label_kind=kind)
+        assert [row["日期"] for row in same] == ["115/10/20", "115/10/20"]
+        assert [row["列印張數"] for row in same] == [1, 1]
+        different = build_big_label_editor_defaults(fresh_config, next_order, labels, label_kind=kind)
+        assert {row["日期"] for row in different} == {"115/10/16"}
+        assert {row["品名"] for row in different} == ({"Edited"} if kind == "big" else {"Original"})
+
+
 def test_legacy_saved_rows_do_not_restore_old_date_counts_or_package_shape(tmp_path):
     import json
     from utils.database import connect_from_config
