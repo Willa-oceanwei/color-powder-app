@@ -7795,11 +7795,22 @@ def render_production_order_workspace():
                         history_html.replace("</head>", """
 <style id="production-history-paper">
 @media screen {
-    html, body { background: #fff; color: #000; color-scheme: light; }
+    html { background: #101820; color-scheme: dark; }
+    body {
+        box-sizing: border-box;
+        width: 210mm;
+        min-height: 148mm;
+        margin: 8px auto;
+        padding: 10mm;
+        transform: none;
+        background: #fff;
+        color: #000;
+        color-scheme: light;
+    }
 }
 </style>
 </head>""", 1),
-                        height=430, scrolling=True,
+                        height=580, scrolling=True,
                     )
                 else:
                     st.caption("可直接按下方「列印 A5」；原有 A5 下載功能保留。")
