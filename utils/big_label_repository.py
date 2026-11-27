@@ -1,4 +1,4 @@
-"""Persist editable label layouts by formula number in the configured database."""
+"""Persist label layouts by recipe number and label dates by production order."""
 
 import json
 import math
@@ -45,11 +45,21 @@ def _memory_key(order, label_kind="big"):
     return json.dumps(["small", key], ensure_ascii=False) if label_kind == "small" and key else key
 
 
+def _order_date_key(order):
+    order_number = _cell(order.get("生產單號"))
+    return json.dumps(["order-date", order_number], ensure_ascii=False) if order_number else ""
+
+
 def build_big_label_editor_defaults(config, order, labels, *, label_kind="big"):
     category = _cell(order.get("色粉類別"))
     recipe_id = _cell(order.get("配方編號"))
+    template_key, date_key = _memory_key(order, label_kind), _order_date_key(order)
     with connect_from_config(config) as conn:
-        saved = conn.execute("SELECT rows_json FROM big_label_templates WHERE label_key=?", (_memory_key(order, label_kind),)).fetchone()
+        records = conn.execute(
+            "SELECT label_key,rows_json FROM big_label_templates WHERE label_key IN (?,?)",
+            (template_key, date_key),
+        ).fetchall()
+        memory = {row[0]: json.loads(row[1]) for row in records}
         if label_kind == "big" and not category and recipe_id:
             recipe = conn.execute("SELECT powder_category FROM recipes WHERE recipe_id=?", (recipe_id,)).fetchone()
             if recipe is not None:
@@ -63,8 +73,11 @@ def build_big_label_editor_defaults(config, order, labels, *, label_kind="big"):
         {"編號": no, "品名": name, "日期": date, "比例": ratio, "數量": fixed_quantity or (f"{qty}KG" if qty else ""), "列印張數": count}
         for (no, name, date, ratio, qty), count in grouped.items()
     ] or [{"編號": _memory_key(order), "品名": _cell(order.get("顏色")), "日期": "", "比例": "", "數量": fixed_quantity, "列印張數": 1}]
-    if saved:
-        remembered = normalize_big_label_editor_rows(json.loads(saved[0]))
+    if date_key in memory:
+        for row in defaults:
+            row["日期"] = memory[date_key]
+    if template_key in memory:
+        remembered = normalize_big_label_editor_rows(memory[template_key])
         if remembered:
             for index, row in enumerate(defaults):
                 template = remembered[min(index, len(remembered) - 1)]
@@ -77,17 +90,23 @@ def remember_big_label_rows(config, order, rows, *, label_kind="big"):
     key = _memory_key(order, label_kind)
     if not key:
         raise ValueError("請先填寫標籤編號")
-    templates = [
-        {field: row[field] for field in ("編號", "品名", "比例")}
-        for row in normalize_big_label_editor_rows(rows)
-    ]
-    payload = json.dumps(templates, ensure_ascii=False, allow_nan=False)
+    normalized = normalize_big_label_editor_rows(rows)
+    templates = [{field: row[field] for field in ("編號", "品名", "比例")} for row in normalized]
+    records = [(key, templates)]
+    if date_key := _order_date_key(order):
+        dates = {row["日期"] for row in normalized if row["列印張數"]}
+        if len(dates) > 1:
+            raise ValueError("同一張生產單的標籤日期須一致")
+        if dates:
+            records.append((date_key, dates.pop()))
+    updated_at = utc_now_iso()
     with connect_from_config(config) as conn:
-        conn.execute(
-            "INSERT INTO big_label_templates(label_key,rows_json,updated_at) VALUES (?,?,?) "
-            "ON CONFLICT(label_key) DO UPDATE SET rows_json=excluded.rows_json,updated_at=excluded.updated_at",
-            (key, payload, utc_now_iso()),
-        )
+        for memory_key, value in records:
+            conn.execute(
+                "INSERT INTO big_label_templates(label_key,rows_json,updated_at) VALUES (?,?,?) "
+                "ON CONFLICT(label_key) DO UPDATE SET rows_json=excluded.rows_json,updated_at=excluded.updated_at",
+                (memory_key, json.dumps(value, ensure_ascii=False, allow_nan=False), updated_at),
+            )
 
 
 def expand_big_label_editor_rows(rows):

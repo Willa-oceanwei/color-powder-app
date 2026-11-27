@@ -3434,6 +3434,9 @@ def render_big_label_editor(label_order, *, key_prefix):
         )
     if label_editor_key not in st.session_state and label_saved_rows_key in st.session_state:
         st.session_state[label_editor_defaults_key] = [dict(row) for row in st.session_state[label_saved_rows_key]]
+    order_date_key = f"production_label_date_{order_no_for_label}" if order_no_for_label.strip() else None
+    if order_date_key:
+        st.session_state.setdefault(order_date_key, st.session_state[label_editor_defaults_key][0]["日期"])
     if label_version_key not in st.session_state:
         st.session_state[label_version_key] = 0
 
@@ -3463,7 +3466,10 @@ def render_big_label_editor(label_order, *, key_prefix):
         paper_key += "_a4_v2"
     paper_choice = paper_col.selectbox("列印紙張", paper_options,
                                 key=paper_key)
-    editor_columns = [col for col in BIG_LABEL_EDITOR_COLUMNS if not is_small or col != "數量"]
+    hidden_columns = {"數量"} if is_small else set()
+    if order_date_key:
+        hidden_columns.add("日期")
+    editor_columns = [col for col in BIG_LABEL_EDITOR_COLUMNS if col not in hidden_columns]
     selected_positions = None
     if is_small and position_col.toggle("指定列印位置", value=False,
                               key=f"{key_prefix}_choose_positions_{order_no_for_label}"):
@@ -3546,6 +3552,14 @@ def render_big_label_editor(label_order, *, key_prefix):
         # Submit the active cell edit and the save action in the same request.
         with st.form(key=f"{key_prefix}_label_form_{order_no_for_label}", border=False):
             st.markdown('<span class="big-label-form-anchor"></span>', unsafe_allow_html=True)
+            label_date = None
+            if order_date_key:
+                saved_date = st.session_state[order_date_key]
+                date_col, _ = st.columns([1, 3])
+                label_date = date_col.text_input(
+                    "標籤日期", value=saved_date, key=f"{key_prefix}_{order_date_key}_{saved_date}",
+                    help="按「儲存並更新標籤」後，同一生產單的大小標籤會共用此日期。",
+                ).strip()
             edited_label_rows = st.data_editor(
                 pd.DataFrame(st.session_state[label_editor_defaults_key], columns=BIG_LABEL_EDITOR_COLUMNS),
                 column_order=editor_columns,
@@ -3558,7 +3572,7 @@ def render_big_label_editor(label_order, *, key_prefix):
                 column_config={
                     "編號": st.column_config.TextColumn("編號", width="small"),
                     "品名": st.column_config.TextColumn("品名", width="medium"),
-                    "日期": st.column_config.TextColumn("日期", width="medium"),
+                    "日期": None if order_date_key else st.column_config.TextColumn("日期", width="medium"),
                     "比例": st.column_config.TextColumn("g/kg" if is_small else "比例", width="small"),
                     "數量": None if is_small else st.column_config.TextColumn("數量", width="small"),
                     "列印張數": st.column_config.NumberColumn(
@@ -3581,6 +3595,9 @@ def render_big_label_editor(label_order, *, key_prefix):
                                                   on_click=request_label_save, use_container_width=True)
         confirm_clicked = submitted or st.session_state.get(pending_save_key, False)
         draft_rows = normalize_big_label_editor_rows(edited_label_rows.to_dict(orient="records"))
+        if label_date is not None:
+            for row in draft_rows:
+                row["日期"] = label_date
         draft_count = sum(row["列印張數"] for row in draft_rows)
         with st.container(key=f"{key_prefix}_label_actions"):
             download_col, online_col, count_col = st.columns([1, 1, 2], vertical_alignment="center")
@@ -3590,18 +3607,12 @@ def render_big_label_editor(label_order, *, key_prefix):
         if confirm_clicked:
             # Consume after the editor has supplied its current cell values.
             st.session_state.pop(pending_save_key, None)
-            editor_rows = normalize_big_label_editor_rows(
-                edited_label_rows.to_dict(orient="records")
-                if hasattr(edited_label_rows, "to_dict")
-                else edited_label_rows
-            )
-            total_qty = sum(row["列印張數"] for row in editor_rows)
-            if total_qty == 0:
+            if draft_count == 0:
                 st.warning("請至少設定一張標籤")
                 st.session_state[label_confirmed_key] = None
             else:
                 try:
-                    remember_big_label_rows(DATABASE_CONFIG, label_order, editor_rows, **memory_options)
+                    remember_big_label_rows(DATABASE_CONFIG, label_order, draft_rows, **memory_options)
                 except Exception:
                     logging.exception("Could not save big label template")
                     st.error("標籤內容未能儲存，請稍後再試。")
@@ -3609,8 +3620,10 @@ def render_big_label_editor(label_order, *, key_prefix):
                 else:
                     # Keep the editor base fixed while its edit deltas are active.
                     # Downloads use a separate saved snapshot.
-                    st.session_state[label_saved_rows_key] = editor_rows
-                    labels = expand_big_label_editor_rows(editor_rows)
+                    if order_date_key:
+                        st.session_state[order_date_key] = label_date
+                    st.session_state[label_saved_rows_key] = draft_rows
+                    labels = expand_big_label_editor_rows(draft_rows)
                     st.session_state[label_confirmed_key] = labels
                     st.session_state[label_version_key] += 1
                     if key_prefix in ("tab2", "tab2_small"):
@@ -3619,14 +3632,18 @@ def render_big_label_editor(label_order, *, key_prefix):
 
     confirmed_rows = st.session_state.get(label_confirmed_key)
     if confirmed_rows:
+        saved_date = st.session_state[order_date_key] if order_date_key else None
         page_size = max(1, len(selected_positions)) if selected_positions is not None else 10 if is_small else 4
         sheets_needed = 0 if selected_positions == [] else -(-len(confirmed_rows) // page_size)
         count_status.caption(f"{len(draft_rows)} 種內容 · {draft_count} 張標籤 · {label_kind}紙 {sheets_needed} 張")
         render_key = f"{key_prefix}_label_render_{order_no_for_label}"
-        render_signature = (st.session_state[label_version_key], paper_choice,
+        render_signature = (st.session_state[label_version_key], saved_date, paper_choice,
                             None if selected_positions is None else tuple(selected_positions))
         cached_render = st.session_state.get(render_key)
         if cached_render is None or cached_render[0] != render_signature:
+            if saved_date is not None and any(row.get("日期") != saved_date for row in confirmed_rows):
+                confirmed_rows = [dict(row, 日期=saved_date) for row in confirmed_rows]
+                st.session_state[label_confirmed_key] = confirmed_rows
             big_label_html = generate_small_label_html(
                 confirmed_rows, paper_stock="a4_driver" if paper_choice == "A4／100%" else "custom",
                 selected_positions=selected_positions,
@@ -3638,9 +3655,10 @@ def render_big_label_editor(label_order, *, key_prefix):
         safe_order_no = re.sub(r'[\\/:*?"<>|]', '-', str(order_no_for_label or "未命名"))
         safe_recipe_no = re.sub(r'[\\/:*?"<>|]', '-', str(label_order.get("配方編號", "") or "無配方"))
         label_filename = f"{safe_order_no}_{safe_recipe_no}_小標籤.html" if is_small else f"{safe_order_no}_大標.html"
-        labels_ready = draft_rows == st.session_state.get(
-            label_saved_rows_key, st.session_state[label_editor_defaults_key]
-        ) and selected_positions != []
+        saved_rows = st.session_state.get(label_saved_rows_key, st.session_state[label_editor_defaults_key])
+        if saved_date is not None:
+            saved_rows = [dict(row, 日期=saved_date) for row in saved_rows]
+        labels_ready = draft_rows == saved_rows and selected_positions != []
 
         download_col.download_button(
             label="下載列印檔",

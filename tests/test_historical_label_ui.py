@@ -24,7 +24,7 @@ def test_saved_order_can_open_edit_save_and_generate_labels_without_new_order(tm
     initialize_database(config.path)
     root = str(Path(__file__).resolve().parents[1])
     helpers = label_ui_helpers_source()
-    app = AppTest.from_string(f'''import sys, ast, logging, re
+    source = f'''import sys, ast, logging, re
 sys.path.insert(0, {root!r})
 from pathlib import Path
 import html as html_escape
@@ -40,13 +40,17 @@ to_roc_date = lambda value: "115/10/14"
 order = {{"生產單號": "P001", "配方編號": "R001", "顏色": "Red", "包裝重量1": "25", "包裝份數1": "2"}}
 st.session_state.setdefault("tab2_small_label_paper_P001", "自訂 14×23 公分／100%")
 render_order_download_actions(order, b"A5", "P001.html")
-''').run(timeout=30)
+'''
+    app = AppTest.from_string(source).run(timeout=30)
     assert not app.exception
     assert not app.dataframe
     app.button(key="open_labels_tab2_P001").click().run()
     assert not app.exception and len(app.dataframe) == 1
     assert app.selectbox(key="tab2_label_paper_P001").value == "A4／100%"
     assert app.dataframe[0].value.iloc[0]["列印張數"] == 2
+    assert app.text_input[0].value == "115/10/14"
+    assert app.text_input[0].label == "標籤日期"
+    app.text_input[0].set_value("115/10/25")
     app.session_state["tab2_big_label_editor_P001"] = {
         "edited_rows": {0: {"品名": "Edited red", "列印張數": 3}},
         "added_rows": [], "deleted_rows": [],
@@ -55,6 +59,7 @@ render_order_download_actions(order, b"A5", "P001.html")
     assert not app.exception
     labels = app.session_state["tab2_big_label_confirmed_P001"]
     assert len(labels) == 3 and labels[0]["名稱"] == "Edited red"
+    assert {row["日期"] for row in labels} == {"115/10/25"}
     saved = build_big_label_editor_defaults(config, {"配方編號": "R001"}, [])
     assert saved[0]["品名"] == "Edited red" and saved[0]["列印張數"] == 1
     assert saved[0]["日期"] == "" and saved[0]["數量"] == ""
@@ -62,6 +67,8 @@ render_order_download_actions(order, b"A5", "P001.html")
     assert not app.exception
     assert app.selectbox(key="tab2_small_label_paper_P001_a4_v2").value == "A4／100%"
     assert app.dataframe[0].value.iloc[0]["品名"] == "Red"
+    assert app.text_input[0].value == "115/10/25"
+    app.text_input[0].set_value("115/10/26")
     assert app.toggle(key="tab2_small_choose_positions_P001").value is False
     assert len(app.checkbox) == 0
     app.session_state["tab2_small_big_label_editor_P001"] = {
@@ -91,5 +98,14 @@ render_order_download_actions(order, b"A5", "P001.html")
     app.radio(key="tab2_label_kind_P001").set_value("大標籤").run()
     assert not app.exception
     assert app.dataframe[0].value.iloc[0]["品名"] == "Edited red"
+    assert app.text_input[0].value == "115/10/26"
+    assert {row["日期"] for row in app.session_state["tab2_big_label_confirmed_P001"]} == {"115/10/26"}
+    assert '115/10/26' in app.session_state["tab2_label_render_P001"][1].decode("utf-8")
     app.button(key="open_labels_tab2_P001").click().run()
     assert not app.exception and not app.dataframe
+
+    reopened = AppTest.from_string(source).run(timeout=30)
+    reopened.button(key="open_labels_tab2_P001").click().run()
+    assert not reopened.exception
+    assert reopened.text_input[0].value == "115/10/26"
+    assert reopened.dataframe[0].value.iloc[0]["品名"] == "Edited red"
