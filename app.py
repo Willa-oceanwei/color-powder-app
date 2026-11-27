@@ -3681,42 +3681,56 @@ def render_order_download_actions(label_order, a5_data, a5_filename):
 
     order_no = str(label_order.get("生產單號", ""))
     open_key = f"history_labels_open_{order_no}"
-    selection_col, a5_col, online_col, label_col = st.columns([3, 1.7, 1.7, 1.2], vertical_alignment="center")
-    selection_col.markdown('''<span class="list-actions-marker"></span><style>
-    [data-testid="stHorizontalBlock"]:has(.list-actions-marker){gap:8px!important;flex-wrap:wrap!important;}
-    [data-testid="stHorizontalBlock"]:has(.list-actions-marker)>[data-testid="column"]{min-width:0!important;width:auto!important;flex:0 0 auto!important;}
-    [data-testid="stHorizontalBlock"]:has(.list-actions-marker)>[data-testid="column"]:first-child{flex:1 1 auto!important;}
-    @media(max-width:640px){[data-testid="stHorizontalBlock"]:has(.list-actions-marker)>[data-testid="column"]:first-child{flex-basis:100%!important;}}
-    </style>''', unsafe_allow_html=True)
-    selection_col.caption(f"已選取 · {order_no}")
-    a5_col.markdown("""<span class="production-print-action"></span><style>
-    body:has(.production-print-action) [data-testid="stPopoverBody"]:has(iframe) {
-        width:min(960px,calc(100vw - 40px))!important;max-width:calc(100vw - 40px)!important;
+    st.html("""<style>
+    .st-key-production_history_actions [data-testid="stHorizontalBlock"] {
+        display:grid!important; grid-template-columns:repeat(3,minmax(0,8.5rem)) minmax(0,1fr);
+        align-items:center; gap:8px!important;
     }
-    [data-testid="column"]:has(.production-print-action) [data-testid="stDownloadButton"] button {
-        background:#1a5a84!important;border:1px solid #3487b6!important;color:#fff!important;
+    .st-key-production_history_actions [data-testid="stHorizontalBlock"] > :is([data-testid="stColumn"],[data-testid="column"]) {
+        min-width:0!important; width:100%!important;
     }
-    [data-testid="column"]:has(.production-print-action) [data-testid="stDownloadButton"] button:hover {
-        background:#124466!important;border-color:#65b5e2!important;
+    .st-key-production_history_actions :is([data-testid="stButton"],[data-testid="stDownloadButton"],[data-testid="stPopover"]) button {
+        height:2.5rem!important; padding:0 .45rem!important;
     }
-    [data-testid="column"]:has(.production-print-action) [data-testid="stDownloadButton"] button:focus-visible {
-        outline:2px solid #8cc8ea!important;outline-offset:2px;
+    .st-key-production_history_actions [data-testid="stDownloadButton"] button {
+        background:#1a5a84!important; border:1px solid #3487b6!important; color:#fff!important;
     }
-    </style>""", unsafe_allow_html=True)
-    a5_col.download_button(
-        "下載 A5", data=a5_data, file_name=a5_filename,
-        mime="text/html", key=f"download_a5_tab2_{order_no}", type="secondary",
-        help="下載 A5 生產單，開啟檔案後會顯示列印視窗。",
-    )
-    with online_col.popover("線上列印 A5", use_container_width=True):
-        st.caption("可直接線上列印；仍可使用原有 A5 下載。")
-        components.html(build_production_order_preview(a5_data.decode("utf-8")), height=430, scrolling=False)
-    if label_col.button("製作標籤", key=f"open_labels_tab2_{order_no}"):
+    body:has(.st-key-production_history_actions) [data-testid="stPopoverBody"]:has(iframe) {
+        width:min(960px,calc(100vw - 40px))!important; max-width:calc(100vw - 40px)!important;
+    }
+    @media(max-width:760px) {
+        .st-key-production_history_actions [data-testid="stHorizontalBlock"] {
+            grid-template-columns:repeat(3,minmax(0,1fr));
+        }
+        .st-key-production_history_actions [data-testid="stHorizontalBlock"] > :last-child {
+            grid-column:1 / -1;
+        }
+    }
+    @media(max-width:420px) {
+        .st-key-production_history_actions :is([data-testid="stButton"],[data-testid="stDownloadButton"],[data-testid="stPopover"]) button {
+            padding:0 .2rem!important; gap:.2rem;
+        }
+        .st-key-production_history_actions button p {font-size:.75rem!important; white-space:nowrap;}
+        .st-key-production_history_actions [data-testid="stPopover"] button svg {width:.85rem;}
+    }
+    </style>""")
+    actions = st.container(key="production_history_actions")
+    label_col, a5_col, online_col, selection_col = actions.columns(4, gap="small", vertical_alignment="center")
+    if label_col.button("製作標籤", key=f"open_labels_tab2_{order_no}", use_container_width=True):
         st.session_state[open_key] = not st.session_state.get(open_key, False)
         if st.session_state[open_key]:
             st.session_state["history_labels_pinned_order_id"] = order_no
         else:
             st.session_state.pop("history_labels_pinned_order_id", None)
+    a5_col.download_button(
+        "下載 A5", data=a5_data, file_name=a5_filename,
+        mime="text/html", key=f"download_a5_tab2_{order_no}", type="secondary",
+        use_container_width=True, help="下載 A5 生產單，開啟檔案後會顯示列印視窗。",
+    )
+    with online_col.popover("線上列印 A5", use_container_width=True):
+        st.caption("可直接線上列印；仍可使用原有 A5 下載。")
+        components.html(build_production_order_preview(a5_data.decode("utf-8")), height=430, scrolling=False)
+    selection_col.caption(f"已選取 · {order_no}")
     if st.session_state.get(open_key, False):
         render_big_label_editor(label_order, key_prefix="tab2")
 
